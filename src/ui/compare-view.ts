@@ -4,6 +4,7 @@
  */
 import { html, LitElement, nothing } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
+import { compareRows, describeStats, statsOf } from '../data/insights.js'
 import { compareRankings, type RankingDoc, type TopicDoc } from '../data/model.js'
 import { formatDate } from './format.js'
 import './bump-chart.js'
@@ -60,9 +61,10 @@ export class RvCompareView extends LitElement {
         ${rows.map(
           (row) => html`<tr>
             <th scope="row">
-              <span class="wa-cluster wa-gap-xs">
+              <span class="wa-cluster wa-gap-xs" id=${`rv-row-${row.topicId}`}>
                 <span class="rv-swatch" style=${styleMap({ '--rv-colour': row.colour ?? '' })}></span>${row.title}
               </span>
+              <wa-tooltip for=${`rv-row-${row.topicId}`} placement="right">${describeStats(statsOf(row.topicId, ordered))}</wa-tooltip>
             </th>
             ${row.ranks.map((rank, index) => this.renderCell(rank, index === 0 ? undefined : row.ranks[index - 1]))}
           </tr>`,
@@ -85,27 +87,7 @@ export class RvCompareView extends LitElement {
   }
 
   private rows(ordered: RankingDoc[]) {
-    const topicIds = new Set<string>()
-    for (const ranking of ordered) for (const item of ranking.items) topicIds.add(item.topicId)
-    const rows = [...topicIds].map((topicId) => {
-      const topic = this.topics.get(topicId)
-      const ranks = ordered.map((ranking) => {
-        const index = ranking.items.findIndex((item) => item.topicId === topicId)
-        return index === -1 ? undefined : index + 1
-      })
-      return {
-        topicId,
-        title: topic?.title ?? 'Unknown topic',
-        colour: topic?.colour,
-        ranks,
-      }
-    })
-    // By rank in the latest ranking; topics missing there sink to the bottom.
-    return rows.sort((a, b) => {
-      const lastA = a.ranks[a.ranks.length - 1] ?? Number.POSITIVE_INFINITY
-      const lastB = b.ranks[b.ranks.length - 1] ?? Number.POSITIVE_INFINITY
-      return lastA - lastB || a.title.localeCompare(b.title)
-    })
+    return compareRows(ordered, this.topics)
   }
 }
 

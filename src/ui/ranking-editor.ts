@@ -6,10 +6,13 @@ import { html, LitElement, nothing } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { styleMap } from 'lit/directives/style-map.js'
 import Sortable from 'sortablejs'
-import { type RankingDoc, shortId, type TopicDoc } from '../data/model.js'
+import { trendOf } from '../data/insights.js'
+import { compareRankings, type RankingDoc, shortId, type TopicDoc } from '../data/model.js'
+import './change-summary.js'
 import type { Store } from '../data/store.js'
 import { attempt, requestDialog } from './events.js'
 import { formatDate } from './format.js'
+import { trendTag } from './trend.js'
 
 export class RvRankingEditor extends LitElement {
   static override properties = {
@@ -127,10 +130,23 @@ export class RvRankingEditor extends LitElement {
     return [...this.topics.values()].filter((topic) => !present.has(shortId(topic._id)))
   }
 
+  /** The session's rankings oldest first, for trends. */
+  private get chronological(): RankingDoc[] {
+    return [...this.rankings].sort(compareRankings)
+  }
+
+  /** The ranking just before this one in time, if any. */
+  private get previous(): RankingDoc | undefined {
+    const ordered = this.chronological
+    const index = ordered.findIndex((candidate) => candidate._id === this.ranking._id)
+    return index > 0 ? ordered[index - 1] : undefined
+  }
+
   override render() {
     const ranking = this.ranking
     const isNewest = this.rankings[0]?._id === ranking._id
     const missing = this.missingTopics
+    const previous = this.previous
     return html`
       <header class="wa-split wa-align-items-start">
         <div class="wa-stack wa-gap-2xs">
@@ -180,6 +196,11 @@ export class RvRankingEditor extends LitElement {
       </header>
 
       ${
+        previous
+          ? html`<rv-change-summary .previous=${previous} .current=${ranking} .topics=${this.topics}></rv-change-summary>`
+          : nothing
+      }
+      ${
         this.items.length === 0
           ? html`<div class="rv-empty wa-stack wa-gap-s wa-align-items-center">
               <wa-icon name="list-ol"></wa-icon>
@@ -209,7 +230,7 @@ export class RvRankingEditor extends LitElement {
       <span class="rv-rank-number" aria-hidden="true">${index + 1}</span>
       <span class="wa-visually-hidden">Rank ${index + 1}</span>
       <wa-icon class="rv-handle" name="grip-vertical" label="Drag to reorder"></wa-icon>
-      <h2 class="rv-rank-title wa-body-m">${title}</h2>
+      <h2 class="rv-rank-title wa-body-m wa-cluster wa-gap-xs">${title}${trendTag(trendOf(topicId, this.chronological))}</h2>
       <wa-textarea
         class="rv-rank-description"
         size="s"
