@@ -29,6 +29,11 @@ export interface TopicDoc {
   title: string
   /** `#rrggbb` */
   colour: string
+  /**
+   * The text a topic enters its first ranking with. Each ranking keeps its own copy from then
+   * on, so editing this later changes nothing already ranked.
+   */
+  description?: string
 }
 
 /** One topic's place in one ranking. Position in `RankingDoc.items` is the rank. */

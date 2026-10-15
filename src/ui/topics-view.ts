@@ -77,9 +77,9 @@ export class RvTopicsView extends LitElement {
   private renderTopic(topic: TopicDoc) {
     const rank = this.rankOf(topic)
     const retired = this.newest !== undefined && rank === undefined
-    return html`<wa-card class="rv-topic-card" appearance="outlined">
+    return html`<wa-card class="rv-topic-card" appearance="outlined" style=${styleMap({ '--rv-colour': topic.colour })}>
       <div class="wa-flank wa-gap-s wa-align-items-center">
-        <span class="rv-swatch wa-font-size-xl" style=${styleMap({ '--rv-colour': topic.colour })}></span>
+        <span class="rv-swatch wa-font-size-xl"></span>
         <div class="wa-split wa-align-items-center wa-gap-xs">
           <div class="wa-stack wa-gap-3xs">
             <h2 class="rv-topic-title wa-body-m wa-font-weight-semibold">${topic.title}</h2>

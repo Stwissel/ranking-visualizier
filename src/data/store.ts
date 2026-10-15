@@ -144,25 +144,28 @@ export class Store {
   }
 
   /**
-   * Creates a topic and appends it to the newest ranking, if there is one. Older rankings are
-   * left as they were: a topic that did not exist then was not ranked then.
+   * Creates a topic and appends it to the newest ranking, if there is one, with the given
+   * description. Older rankings are left as they were: a topic that did not exist then was not
+   * ranked then. The description stays on the topic too, for its first ranking if none exists yet.
    */
   async createTopic(
     sid: SessionId,
     input: { title: string; colour: string; description?: string },
   ): Promise<TopicDoc> {
     await this.getSession(sid)
+    const description = input.description?.trim() ?? ''
     const doc: TopicDoc = {
       _id: ids.topic(sid, this.idGenerator()),
       type: 'topic',
       sessionId: sid,
       title: requireText(input.title, 'Topic title'),
       colour: requireColour(input.colour),
+      description,
     }
     await this.db.put(doc)
     const newest = await this.newestRanking(sid)
     if (newest) {
-      newest.items.push({ topicId: shortId(doc._id), description: input.description ?? '' })
+      newest.items.push({ topicId: shortId(doc._id), description })
       await this.db.put(newest)
     }
     return this.get<TopicDoc>(doc._id)
@@ -171,13 +174,32 @@ export class Store {
   async updateTopic(
     sid: SessionId,
     tid: TopicId,
-    patch: Partial<Pick<TopicDoc, 'title' | 'colour'>>,
+    patch: Partial<Pick<TopicDoc, 'title' | 'colour' | 'description'>>,
   ): Promise<TopicDoc> {
     const doc = await this.getTopic(sid, tid)
     if (patch.title !== undefined) doc.title = requireText(patch.title, 'Topic title')
     if (patch.colour !== undefined) doc.colour = requireColour(patch.colour)
+    if (patch.description !== undefined) doc.description = patch.description.trim()
     await this.db.put(doc)
     return this.getTopic(sid, tid)
+  }
+
+  /**
+   * The description a topic should enter a ranking with: the one it had in the most recent
+   * ranking that contained it, else the topic's own, else nothing. Descriptions are carried
+   * forward, never invented.
+   */
+  private async carriedDescription(
+    sid: SessionId,
+    topic: TopicDoc,
+    rankings?: RankingDoc[],
+  ): Promise<string> {
+    const tid = shortId(topic._id)
+    for (const ranking of rankings ?? (await this.listRankings(sid))) {
+      const item = ranking.items.find((candidate) => candidate.topicId === tid)
+      if (item) return item.description
+    }
+    return topic.description ?? ''
   }
 
   /**
@@ -220,12 +242,15 @@ export class Store {
     )
   }
 
-  /** Re-adds a topic (typically a retired one) at the bottom of a ranking. */
+  /**
+   * Re-adds a topic (typically a retired one) at the bottom of a ranking, with the description
+   * it last had.
+   */
   async addTopicToRanking(sid: SessionId, rid: RankingId, tid: TopicId): Promise<RankingDoc> {
-    await this.getTopic(sid, tid)
+    const topic = await this.getTopic(sid, tid)
     const ranking = await this.getRanking(sid, rid)
     if (!ranking.items.some((item) => item.topicId === tid)) {
-      ranking.items.push({ topicId: tid, description: '' })
+      ranking.items.push({ topicId: tid, description: await this.carriedDescription(sid, topic) })
       await this.db.put(ranking)
     }
     return this.getRanking(sid, rid)
@@ -250,7 +275,7 @@ export class Store {
   /**
    * A new ranking starts as a copy of the newest one — same order, same descriptions — so the
    * user only has to express what changed. Without a predecessor, every topic is listed in
-   * title order with an empty description.
+   * title order with the description it was created with.
    */
   async createRanking(sid: SessionId, input: { name: string; date: string }): Promise<RankingDoc> {
     await this.getSession(sid)
@@ -259,7 +284,7 @@ export class Store {
       ? previous.items.map((item) => ({ ...item }))
       : (await this.listTopics(sid)).map((topic) => ({
           topicId: shortId(topic._id),
-          description: '',
+          description: topic.description ?? '',
         }))
     const doc: RankingDoc = {
       _id: ids.ranking(sid, this.idGenerator()),

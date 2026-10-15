@@ -46,7 +46,14 @@ import './dialogs/settings-dialog.js'
 import { attempt, type DialogRequest, type Notice, notify } from './events.js'
 import { downloadText, exportFileName } from './format.js'
 import { navigate, parseRoute, type Route } from './router.js'
-import { applyScheme, readSchemePreference, resolveScheme, saveSchemePreference } from './scheme.js'
+import {
+  applyScheme,
+  readSchemePreference,
+  resolveScheme,
+  type Scheme,
+  saveSchemePreference,
+  watchSystemScheme,
+} from './scheme.js'
 
 const SESSION_KEY = 'ranking-visualizier.session'
 
@@ -65,6 +72,7 @@ export class RvApp extends LitElement {
     syncStatus: { state: true },
     syncBusy: { state: true },
     scheme: { state: true },
+    schemePreference: { state: true },
     ready: { state: true },
   }
 
@@ -81,7 +89,9 @@ export class RvApp extends LitElement {
   notice: Notice | undefined
   syncStatus: SyncStatus = { state: 'off' }
   syncBusy = false
-  scheme: 'light' | 'dark' = resolveScheme(readSchemePreference())
+  schemePreference: Scheme = readSchemePreference()
+  scheme: 'light' | 'dark' = resolveScheme(this.schemePreference)
+  private unwatchScheme: (() => void) | undefined
   ready = false
 
   private unsubscribe: (() => void) | undefined
@@ -99,12 +109,16 @@ export class RvApp extends LitElement {
     this.addEventListener('rv-dialog', this.onDialogRequest as EventListener)
     this.addEventListener('rv-notice', this.onNotice as EventListener)
     this.addEventListener('rv-compare-toggle', this.onCompareToggle as EventListener)
+    this.unwatchScheme = watchSystemScheme(() => {
+      if (this.schemePreference === 'system') this.scheme = applyScheme('system')
+    })
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback()
     window.removeEventListener('hashchange', this.onHashChange)
     this.unsubscribe?.()
+    this.unwatchScheme?.()
     this.sync?.stop()
   }
 
@@ -200,10 +214,12 @@ export class RvApp extends LitElement {
     }
   }
 
-  private toggleScheme = (): void => {
-    const next = this.scheme === 'dark' ? 'light' : 'dark'
-    saveSchemePreference(next)
-    this.scheme = applyScheme(next)
+  private onSchemeMenu = (event: CustomEvent<{ item: { value: string } }>): void => {
+    const value = event.detail.item.value
+    if (value !== 'light' && value !== 'dark' && value !== 'system') return
+    saveSchemePreference(value)
+    this.schemePreference = value
+    this.scheme = applyScheme(value)
   }
 
   // ---- sessions -------------------------------------------------------------------------
@@ -387,9 +403,23 @@ export class RvApp extends LitElement {
             <wa-divider></wa-divider>
             <wa-dropdown-item value="settings"><wa-icon slot="icon" name="gear"></wa-icon>CouchDB sync…</wa-dropdown-item>
           </wa-dropdown>
-          <wa-button appearance="plain" size="s" @click=${this.toggleScheme}>
-            <wa-icon name=${this.scheme === 'dark' ? 'sun' : 'moon'} label=${this.scheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}></wa-icon>
-          </wa-button>
+          <wa-dropdown placement="bottom-end" @wa-select=${this.onSchemeMenu}>
+            <wa-button slot="trigger" appearance="plain" size="s">
+              <wa-icon
+                name=${this.schemePreference === 'system' ? 'circle-half-stroke' : this.scheme === 'dark' ? 'moon' : 'sun'}
+                label="Appearance"
+              ></wa-icon>
+            </wa-button>
+            <wa-dropdown-item type="checkbox" value="light" ?checked=${this.schemePreference === 'light'}>
+              <wa-icon slot="icon" name="sun"></wa-icon>Light
+            </wa-dropdown-item>
+            <wa-dropdown-item type="checkbox" value="dark" ?checked=${this.schemePreference === 'dark'}>
+              <wa-icon slot="icon" name="moon"></wa-icon>Dark
+            </wa-dropdown-item>
+            <wa-dropdown-item type="checkbox" value="system" ?checked=${this.schemePreference === 'system'}>
+              <wa-icon slot="icon" name="circle-half-stroke"></wa-icon>System
+            </wa-dropdown-item>
+          </wa-dropdown>
         </div>
       </header>
     `
@@ -575,14 +605,15 @@ export class RvApp extends LitElement {
             })}
           @rv-close=${close}></rv-confirm-dialog>`
       case 'new-topic':
-        return html`<rv-topic-dialog label="New topic" ?withDescription=${this.rankings.length > 0}
+        return html`<rv-topic-dialog label="New topic" ?ranked=${this.rankings.length > 0}
           .colour=${DEFAULT_COLOURS[this.topics.length % DEFAULT_COLOURS.length]}
           @rv-submit=${(e: CustomEvent<{ title: string; colour: string; description: string }>) =>
             sid && attempt(this, () => store.createTopic(sid, e.detail))}
           @rv-close=${close}></rv-topic-dialog>`
       case 'edit-topic':
-        return html`<rv-topic-dialog label="Edit topic" submitLabel="Save" .title=${dialog.topic.title} .colour=${dialog.topic.colour}
-          @rv-submit=${(e: CustomEvent<{ title: string; colour: string }>) =>
+        return html`<rv-topic-dialog label="Edit topic" submitLabel="Save" editing .title=${dialog.topic.title} .colour=${dialog.topic.colour}
+          .description=${dialog.topic.description ?? ''}
+          @rv-submit=${(e: CustomEvent<{ title: string; colour: string; description: string }>) =>
             sid && attempt(this, () => store.updateTopic(sid, shortId(dialog.topic._id), e.detail))}
           @rv-close=${close}></rv-topic-dialog>`
       case 'delete-topic':

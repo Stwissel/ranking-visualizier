@@ -3,22 +3,27 @@ import { DEFAULT_COLOURS } from '../../data/model.js'
 import { DialogElement, formValues } from './base.js'
 
 /**
- * Title and colour of a topic, plus the description for the newest ranking when creating.
- * Emits `rv-submit` with `{ title, colour, description }`.
+ * Title, colour and description of a topic. Emits `rv-submit` with
+ * `{ title, colour, description }`.
  */
 export class RvTopicDialog extends DialogElement {
   static override properties = {
     label: { type: String },
     title: { type: String },
     colour: { type: String },
-    withDescription: { type: Boolean },
+    description: { type: String },
+    /** Whether a newest ranking exists that the description goes into right away. */
+    ranked: { type: Boolean },
+    editing: { type: Boolean },
     submitLabel: { type: String },
   }
 
   label = 'New topic'
   override title = ''
   colour = DEFAULT_COLOURS[0] ?? '#2563eb'
-  withDescription = false
+  description = ''
+  ranked = false
+  editing = false
   submitLabel = 'Create'
 
   private onSubmit = (event: SubmitEvent): void => {
@@ -42,17 +47,20 @@ export class RvTopicDialog extends DialogElement {
             .value=${this.colour}
             .swatches=${[...DEFAULT_COLOURS]}
           ></wa-color-picker>
-          ${
-            this.withDescription
-              ? html`<wa-textarea
-                  name="description"
-                  label="Description in the current ranking"
-                  hint="Descriptions belong to a ranking; title and colour are shared."
-                  rows="2"
-                  resize="auto"
-                ></wa-textarea>`
-              : ''
-          }
+          <wa-textarea
+            name="description"
+            label="Description"
+            hint=${
+              this.editing
+                ? 'Only used when the topic next enters a ranking; rankings keep their own text.'
+                : this.ranked
+                  ? 'Goes into the newest ranking now. Each ranking keeps its own copy from then on.'
+                  : 'Used when the topic enters its first ranking.'
+            }
+            rows="2"
+            resize="auto"
+            .value=${this.description}
+          ></wa-textarea>
         </form>
         <wa-button slot="footer" appearance="plain" data-dialog="close">Cancel</wa-button>
         <wa-button slot="footer" variant="brand" type="submit" form="rv-topic-form">${this.submitLabel}</wa-button>

@@ -15,6 +15,7 @@ import bars from '@fortawesome/fontawesome-free/svgs/solid/bars.svg?url'
 import chartLine from '@fortawesome/fontawesome-free/svgs/solid/chart-line.svg?url'
 import check from '@fortawesome/fontawesome-free/svgs/solid/check.svg?url'
 import circleExclamation from '@fortawesome/fontawesome-free/svgs/solid/circle-exclamation.svg?url'
+import circleHalfStroke from '@fortawesome/fontawesome-free/svgs/solid/circle-half-stroke.svg?url'
 import circleInfo from '@fortawesome/fontawesome-free/svgs/solid/circle-info.svg?url'
 import cloud from '@fortawesome/fontawesome-free/svgs/solid/cloud.svg?url'
 import download from '@fortawesome/fontawesome-free/svgs/solid/download.svg?url'
@@ -43,6 +44,7 @@ export const ICONS: Readonly<Record<string, string>> = {
   'chart-line': chartLine,
   check,
   'circle-exclamation': circleExclamation,
+  'circle-half-stroke': circleHalfStroke,
   'circle-info': circleInfo,
   cloud,
   download,

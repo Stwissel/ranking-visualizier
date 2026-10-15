@@ -7,7 +7,9 @@ as JSON or synced with your own CouchDB.
 ## What it does
 
 - **Topics** have a title and a colour shared across all rankings, and a description that
-  belongs to each ranking separately.
+  belongs to each ranking separately. The description given at creation goes into the newest
+  ranking, or into the first ranking the topic enters; from then on each ranking keeps its
+  own copy, and a new ranking carries the previous one's text forward.
 - **Rankings** are named, dated snapshots of the topics' order. A new ranking starts as a copy
   of the newest one; reorder by dragging the handle or with the arrow buttons.
 - **Compare** two or more rankings: a bump chart draws one line per topic in its colour, and a
@@ -16,6 +18,7 @@ as JSON or synced with your own CouchDB.
 - **Export and import** any session or all of them as JSON.
 - **Sync** with a CouchDB, live or on demand, configured in the app. Credentials stay in the
   browser and never replicate.
+- **Appearance**: light, dark, or follow the system, from the header menu.
 
 Removing a topic offers two choices: out of this ranking and every later one (earlier
 rankings and the chart keep its history), or deleted completely.
