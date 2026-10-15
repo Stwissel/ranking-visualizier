@@ -165,7 +165,13 @@ wa-page[view="mobile"] .rv-main {
   row-gap: var(--wa-space-2xs);
   align-items: center;
   padding: var(--wa-space-s) var(--wa-space-m);
-  background: var(--wa-color-surface-raised);
+  /* A wash of the topic colour over the surface: enough to tell rows apart, light enough that
+     text keeps its contrast in either scheme. */
+  background: color-mix(
+    in srgb,
+    var(--rv-colour, var(--wa-color-neutral-fill-loud)) 15%,
+    var(--wa-color-surface-raised)
+  );
   border: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
   border-inline-start: var(--wa-space-xs) solid var(--rv-colour, var(--wa-color-neutral-fill-loud));
   border-radius: var(--wa-border-radius-m);
@@ -240,6 +246,15 @@ wa-page[view="mobile"] .rv-rank-actions {
 
 .rv-topic-card::part(body) {
   padding-block: var(--wa-space-s);
+}
+
+/* The same wash on a topic's card; wa-card paints its background on the host. */
+.rv-topic-card {
+  background-color: color-mix(
+    in srgb,
+    var(--rv-colour, var(--wa-color-neutral-fill-loud)) 15%,
+    var(--wa-color-surface-raised)
+  );
 }
 
 /* Compare ---------------------------------------------------------------------------- */

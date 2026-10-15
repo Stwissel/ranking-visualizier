@@ -125,6 +125,7 @@ export function parseExport(text: string): ExportFile {
         sessionId: sid,
         title: topic.title,
         colour: topic.colour.toLowerCase(),
+        ...(typeof topic.description === 'string' ? { description: topic.description } : {}),
       }
     })
     const topicIds = new Set(topics.map((topic) => shortId(topic._id)))

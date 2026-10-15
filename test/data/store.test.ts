@@ -124,6 +124,46 @@ describe('topics', () => {
     expect(await store.listTopics(sid)).toHaveLength(2)
   })
 
+  it('keeps the description a topic was created with and carries it into rankings', async () => {
+    const { store, sid, a } = await seeded()
+    const d = await store.createTopic(sid, {
+      title: 'Delta',
+      colour: '#123456',
+      description: 'why it matters',
+    })
+    expect(d.description).toBe('why it matters')
+    // No ranking yet: the first ranking picks the description up from the topic.
+    const first = await store.createRanking(sid, { name: 'First', date: '2026-01-01' })
+    const rid = shortId(first._id)
+    const deltaItem = first.items.find((item) => item.topicId === shortId(d._id))
+    expect(deltaItem?.description).toBe('why it matters')
+    // Later edits in a ranking stay with that ranking; the next ranking copies them.
+    await store.setDescription(sid, rid, shortId(d._id), 'changed in Q1')
+    const second = await store.createRanking(sid, { name: 'Second', date: '2026-02-01' })
+    expect(second.items.find((item) => item.topicId === shortId(d._id))?.description).toBe(
+      'changed in Q1',
+    )
+    // A topic created while rankings exist goes into the newest with its description.
+    const e = await store.createTopic(sid, {
+      title: 'Epsilon',
+      colour: '#654321',
+      description: 'new now',
+    })
+    const newest = await store.getRanking(sid, shortId(second._id))
+    expect(newest.items.at(-1)).toEqual({ topicId: shortId(e._id), description: 'new now' })
+    // Retiring and re-adding carries the last description, not an empty one.
+    await store.retireTopic(sid, shortId(d._id), shortId(second._id))
+    await store.addTopicToRanking(sid, shortId(second._id), shortId(d._id))
+    const readded = await store.getRanking(sid, shortId(second._id))
+    expect(readded.items.at(-1)?.description).toBe('changed in Q1')
+    // Editing the topic's own description changes only what future first placements use.
+    await store.updateTopic(sid, a, { description: 'default for Alpha' })
+    expect((await store.getTopic(sid, a)).description).toBe('default for Alpha')
+    expect(
+      (await store.getRanking(sid, rid)).items.find((item) => item.topicId === a)?.description,
+    ).toBe('')
+  })
+
   it('re-adds a retired topic at the bottom of a ranking, once', async () => {
     const { store, sid, a } = await seeded()
     const r1 = await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })

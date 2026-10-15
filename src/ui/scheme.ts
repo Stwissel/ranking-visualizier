@@ -21,6 +21,13 @@ export function resolveScheme(preference: Scheme): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+/** Calls `listener` whenever the operating system's preference flips. Returns the unsubscribe. */
+export function watchSystemScheme(listener: () => void): () => void {
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
+  media.addEventListener('change', listener)
+  return () => media.removeEventListener('change', listener)
+}
+
 export function applyScheme(
   preference: Scheme,
   root: HTMLElement = document.documentElement,
