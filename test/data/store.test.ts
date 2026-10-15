@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shortId } from '../../src/data/model.js'
+import { parseTopicLines, shortId } from '../../src/data/model.js'
 import { NotFoundError, ValidationError } from '../../src/data/store.js'
 import { testStore } from './support/memory-database.js'
 
@@ -257,6 +257,90 @@ describe('rankings', () => {
   })
 })
 
+describe('createTopics', () => {
+  it('parses lines with optional descriptions', () => {
+    expect(parseTopicLines('A | why\n\n  B  \n| no title\nC|')).toEqual([
+      { title: 'A', description: 'why' },
+      { title: 'B', description: '' },
+      { title: 'C', description: '' },
+    ])
+  })
+
+  it('creates several topics with unused colours and appends them to the newest ranking', async () => {
+    const { store, sid } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const created = await store.createTopics(sid, [
+      { title: 'Delta', description: 'd' },
+      { title: 'Epsilon' },
+      { title: 'Zeta' },
+    ])
+    expect(created.map((t) => t.title)).toEqual(['Delta', 'Epsilon', 'Zeta'])
+    // #ff0000, #00ff00, #0000ff are taken by seeded(); defaults start from the palette's first.
+    expect(created.map((t) => t.colour)).toEqual(['#2a78d6', '#eb6834', '#1baf7a'])
+    expect(created[0]?.description).toBe('d')
+    const items = (await store.getRanking(sid, shortId(ranking._id))).items
+    expect(items.slice(-3)).toEqual([
+      { topicId: shortId(created[0]!._id), description: 'd' },
+      { topicId: shortId(created[1]!._id), description: '' },
+      { topicId: shortId(created[2]!._id), description: '' },
+    ])
+  })
+
+  it('refuses duplicates before writing anything', async () => {
+    const { store, sid } = await seeded()
+    await expect(
+      store.createTopics(sid, [{ title: 'alpha' }, { title: 'New' }, { title: 'new' }]),
+    ).rejects.toThrow(/Already in this session or listed twice: alpha, new/)
+    expect(await store.listTopics(sid)).toHaveLength(3)
+  })
+})
+
+describe('undoable', () => {
+  it('puts a reorder back with a single write', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    const { undo } = await store.undoable(sid, () => store.reorderRanking(sid, rid, [c, a, b]))
+    expect((await store.getRanking(sid, rid)).items.map((i) => i.topicId)).toEqual([c, a, b])
+    await undo()
+    const restored = await store.getRanking(sid, rid)
+    expect(restored.items.map((i) => i.topicId)).toEqual([a, b, c])
+    expect(restored._rev?.startsWith('3-')).toBe(true)
+  })
+
+  it('brings a deleted topic back into every ranking', async () => {
+    const { store, sid, b } = await seeded()
+    const r1 = await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })
+    await store.setDescription(sid, shortId(r1._id), b, 'kept')
+    const { undo } = await store.undoable(sid, () => store.deleteTopic(sid, b))
+    await expect(store.getTopic(sid, b)).rejects.toBeInstanceOf(NotFoundError)
+    await undo()
+    expect((await store.getTopic(sid, b)).title).toBe('Beta')
+    const item = (await store.getRanking(sid, shortId(r1._id))).items.find((i) => i.topicId === b)
+    expect(item?.description).toBe('kept')
+  })
+
+  it('restores a deleted session with its topics and rankings', async () => {
+    const { store, sid } = await seeded()
+    await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })
+    const { undo } = await store.undoable(sid, () => store.deleteSession(sid))
+    expect(await store.listSessions()).toHaveLength(0)
+    await undo()
+    expect((await store.getSession(sid)).name).toBe('Work')
+    expect(await store.listTopics(sid)).toHaveLength(3)
+    expect(await store.listRankings(sid)).toHaveLength(1)
+  })
+
+  it('removes what the action created when undone', async () => {
+    const { store, sid } = await seeded()
+    const { result, undo } = await store.undoable(sid, () =>
+      store.createTopic(sid, { title: 'Temp', colour: '#123456' }),
+    )
+    await undo()
+    await expect(store.getTopic(sid, shortId(result._id))).rejects.toBeInstanceOf(NotFoundError)
+  })
+})
+
 describe('tiers', () => {
   it('the first tier takes every item; later tiers start empty; a new ranking copies them', async () => {
     const { store, sid, a, b, c } = await seeded()
@@ -341,5 +425,12 @@ describe('tiers', () => {
     const d = await store.createTopic(sid, { title: 'Delta', colour: '#123456' })
     const doc = await store.getRanking(sid, rid)
     expect(doc.items.at(-1)).toEqual({ topicId: shortId(d._id), description: '', tierId: later.id })
+    const [e] = await store.createTopics(sid, [{ title: 'Echo' }])
+    const again = await store.getRanking(sid, rid)
+    expect(again.items.at(-1)).toEqual({
+      topicId: shortId(e!._id),
+      description: '',
+      tierId: later.id,
+    })
   })
 })

@@ -135,6 +135,27 @@ export function compareRankings(a: RankingDoc, b: RankingDoc): number {
   )
 }
 
+export interface TopicLine {
+  title: string
+  description: string
+}
+
+/**
+ * One topic per line, optionally `Title | description`. Blank lines are skipped; a line that
+ * is only a pipe or only whitespace before the pipe is skipped too.
+ */
+export function parseTopicLines(text: string): TopicLine[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const pipe = line.indexOf('|')
+      const title = (pipe === -1 ? line : line.slice(0, pipe)).trim()
+      const description = pipe === -1 ? '' : line.slice(pipe + 1).trim()
+      return { title, description }
+    })
+    .filter((line) => line.title !== '')
+}
+
 /**
  * Defaults offered when a topic is created, in this order. Eight hues whose adjacent pairs
  * clear the colour-vision-deficiency separation checks of the dataviz palette validator; the

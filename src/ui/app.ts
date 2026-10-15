@@ -9,6 +9,7 @@
 import { html, LitElement, nothing } from 'lit'
 import {
   DEFAULT_COLOURS,
+  type parseTopicLines,
   type RankingDoc,
   type SessionDoc,
   shortId,
@@ -44,7 +45,7 @@ import './dialogs/topic-dialog.js'
 import './dialogs/delete-topic-dialog.js'
 import './dialogs/import-dialog.js'
 import './dialogs/settings-dialog.js'
-import { attempt, type DialogRequest, type Notice, notify } from './events.js'
+import { attempt, type DialogRequest, type Notice, notify, type UndoOffer } from './events.js'
 import { downloadText, exportFileName } from './format.js'
 import { navigate, parseRoute, type Route } from './router.js'
 import {
@@ -57,6 +58,11 @@ import {
 } from './scheme.js'
 
 const SESSION_KEY = 'ranking-visualizier.session'
+
+/** Topic and ranking names are user data; the toast message is rendered as HTML. */
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+}
 
 export class RvApp extends LitElement {
   static override properties = {
@@ -72,6 +78,7 @@ export class RvApp extends LitElement {
     notice: { state: true },
     syncStatus: { state: true },
     syncBusy: { state: true },
+    pendingUndo: { state: true },
     scheme: { state: true },
     schemePreference: { state: true },
     ready: { state: true },
@@ -90,6 +97,9 @@ export class RvApp extends LitElement {
   notice: Notice | undefined
   syncStatus: SyncStatus = { state: 'off' }
   syncBusy = false
+  /** The last undoable action, while its toast is up. */
+  pendingUndo: UndoOffer | undefined
+  private undoToast: { hide(): void } | undefined
   schemePreference: Scheme = readSchemePreference()
   scheme: 'light' | 'dark' = resolveScheme(this.schemePreference)
   private unwatchScheme: (() => void) | undefined
@@ -110,6 +120,8 @@ export class RvApp extends LitElement {
     this.addEventListener('rv-dialog', this.onDialogRequest as EventListener)
     this.addEventListener('rv-notice', this.onNotice as EventListener)
     this.addEventListener('rv-compare-toggle', this.onCompareToggle as EventListener)
+    this.addEventListener('rv-undo', this.onUndoOffer as EventListener)
+    window.addEventListener('keydown', this.onKeyDown)
     this.unwatchScheme = watchSystemScheme(() => {
       if (this.schemePreference === 'system') this.scheme = applyScheme('system')
     })
@@ -118,6 +130,7 @@ export class RvApp extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback()
     window.removeEventListener('hashchange', this.onHashChange)
+    window.removeEventListener('keydown', this.onKeyDown)
     this.unsubscribe?.()
     this.unwatchScheme?.()
     this.sync?.stop()
@@ -191,6 +204,66 @@ export class RvApp extends LitElement {
 
   private onNotice = (event: CustomEvent<Notice>): void => {
     this.showNotice(event.detail)
+  }
+
+  // ---- undo -----------------------------------------------------------------------------
+
+  private onUndoOffer = (event: CustomEvent<UndoOffer>): void => {
+    void this.showUndo(event.detail)
+  }
+
+  /** One undo at a time: a new offer replaces the toast of the previous one. */
+  private async showUndo(offer: UndoOffer): Promise<void> {
+    this.undoToast?.hide()
+    this.pendingUndo = offer
+    const toast = this.querySelector('wa-toast') as
+      | (HTMLElement & {
+          create(message: string, options?: object): Promise<HTMLElement & { hide(): void }>
+        })
+      | null
+    if (!toast) return
+    const item = await toast.create(
+      `<span class="wa-split wa-gap-m wa-align-items-center"><span>${escapeHtml(offer.message)}</span>` +
+        `<wa-button size="s" appearance="outlined" data-undo>Undo</wa-button></span>`,
+      { allowHtml: true, duration: 8000, variant: 'neutral', icon: 'rotate' },
+    )
+    this.undoToast = item
+    item.addEventListener('wa-after-hide', () => {
+      if (this.pendingUndo === offer) this.pendingUndo = undefined
+      if (this.undoToast === item) this.undoToast = undefined
+    })
+  }
+
+  private onToastClick = (event: Event): void => {
+    if ((event.target as HTMLElement).closest('[data-undo]')) void this.runUndo()
+  }
+
+  private onKeyDown = (event: KeyboardEvent): void => {
+    if (
+      !(event.key === 'z' || event.key === 'Z') ||
+      !(event.metaKey || event.ctrlKey) ||
+      event.shiftKey
+    )
+      return
+    const target = event.target as HTMLElement | null
+    // Inside a text field the browser's own undo is the right one.
+    if (target?.closest('input, textarea, wa-input, wa-textarea, [contenteditable]')) return
+    if (!this.pendingUndo) return
+    event.preventDefault()
+    void this.runUndo()
+  }
+
+  private showUndoOffer(message: string, undo: () => Promise<void>): void {
+    void this.showUndo({ message, undo })
+  }
+
+  private async runUndo(): Promise<void> {
+    const offer = this.pendingUndo
+    if (!offer) return
+    this.pendingUndo = undefined
+    this.undoToast?.hide()
+    this.undoToast = undefined
+    await attempt(this, offer.undo, `Undone: ${offer.message}`)
   }
 
   private onCompareToggle = (event: CustomEvent<{ rid: string; checked: boolean }>): void => {
@@ -343,6 +416,7 @@ export class RvApp extends LitElement {
           ${this.renderView()}
         </main>
       </wa-page>
+      <wa-toast placement="bottom-center" @click=${this.onToastClick}></wa-toast>
       <input id="rv-import-file" class="rv-hidden" type="file" accept="application/json,.json" @change=${this.onImportFile} />
       ${this.renderDialog()}
     `
@@ -577,10 +651,15 @@ export class RvApp extends LitElement {
           @rv-confirm=${() =>
             sid &&
             attempt(this, async () => {
-              await store.deleteSession(sid)
+              const name = this.currentSession?.name ?? 'session'
+              const { undo } = await store.undoable(sid, () => store.deleteSession(sid))
               this.selectSession(undefined)
               navigate({ view: 'home' })
               await this.reload()
+              this.showUndoOffer(`Deleted session “${name}”`, async () => {
+                await undo()
+                await this.switchSession(sid)
+              })
             })}
           @rv-close=${close}></rv-confirm-dialog>`
       case 'new-ranking':
@@ -605,14 +684,23 @@ export class RvApp extends LitElement {
           @rv-confirm=${() =>
             sid &&
             attempt(this, async () => {
-              await store.deleteRanking(sid, shortId(dialog.ranking._id))
-              if (this.route.view === 'ranking' && this.route.rid === shortId(dialog.ranking._id))
+              const rid = shortId(dialog.ranking._id)
+              const { undo } = await store.undoable(sid, () => store.deleteRanking(sid, rid))
+              if (this.route.view === 'ranking' && this.route.rid === rid)
                 navigate({ view: 'home' })
+              this.showUndoOffer(`Deleted “${dialog.ranking.name}”`, undo)
             })}
           @rv-close=${close}></rv-confirm-dialog>`
       case 'new-topic':
         return html`<rv-topic-dialog label="New topic" ?ranked=${this.rankings.length > 0}
           .colour=${DEFAULT_COLOURS[this.topics.length % DEFAULT_COLOURS.length]}
+          @rv-submit-many=${(e: CustomEvent<{ lines: ReturnType<typeof parseTopicLines> }>) =>
+            sid &&
+            attempt(
+              this,
+              () => store.createTopics(sid, e.detail.lines),
+              `Added ${e.detail.lines.length} topic${e.detail.lines.length === 1 ? '' : 's'}.`,
+            )}
           @rv-submit=${(e: CustomEvent<{ title: string; colour: string; description: string }>) =>
             sid && attempt(this, () => store.createTopic(sid, e.detail))}
           @rv-close=${close}></rv-topic-dialog>`
@@ -626,15 +714,25 @@ export class RvApp extends LitElement {
         return html`<rv-delete-topic-dialog .topic=${dialog.topic} .ranking=${dialog.ranking}
           @rv-submit=${(e: CustomEvent<{ mode: 'retire' | 'delete' }>) =>
             sid &&
-            attempt(this, () =>
-              e.detail.mode === 'delete'
-                ? store.deleteTopic(sid, shortId(dialog.topic._id))
-                : store.retireTopic(
-                    sid,
-                    shortId(dialog.topic._id),
-                    dialog.ranking ? shortId(dialog.ranking._id) : undefined,
-                  ),
-            )}
+            attempt(this, async () => {
+              const tid = shortId(dialog.topic._id)
+              const complete = e.detail.mode === 'delete'
+              const { undo } = await store.undoable(sid, () =>
+                complete
+                  ? store.deleteTopic(sid, tid)
+                  : store.retireTopic(
+                      sid,
+                      tid,
+                      dialog.ranking ? shortId(dialog.ranking._id) : undefined,
+                    ),
+              )
+              this.showUndoOffer(
+                complete
+                  ? `Deleted “${dialog.topic.title}”`
+                  : `Removed “${dialog.topic.title}” from ${dialog.ranking?.name ?? 'the newest ranking'} and later`,
+                undo,
+              )
+            })}
           @rv-close=${close}></rv-delete-topic-dialog>`
       case 'new-tier':
         return html`<rv-text-dialog label="New tier" fieldLabel="Tier name" submitLabel="Add"
