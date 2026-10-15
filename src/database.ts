@@ -1,13 +1,13 @@
 /**
- * The browser's database and the remote factory. Separated from the rest of `data/` because
+ * The browser's database and the remote factory. Kept outside `src/data/` because
  * `pouchdb-browser` references `self` at module scope and cannot load in Node.
  *
  * @module
  */
 import PouchDB from 'pouchdb-browser'
-import type { AnyDoc } from './model.js'
-import type { RemoteFactory } from './sync.js'
-import { remoteUrl } from './sync.js'
+import type { AnyDoc } from './data/model.js'
+import type { RemoteFactory } from './data/sync.js'
+import { remoteUrl } from './data/sync.js'
 
 export const LOCAL_DATABASE_NAME = 'ranking-visualizier'
 

@@ -177,6 +177,10 @@ describe('rankings', () => {
     await expect(
       store.createRanking(sid, { name: 'X', date: '2026-13-45' }),
     ).rejects.toBeInstanceOf(ValidationError)
+    // Date.parse would roll this into March; the store must not.
+    await expect(
+      store.createRanking(sid, { name: 'X', date: '2026-02-30' }),
+    ).rejects.toBeInstanceOf(ValidationError)
   })
 
   it('refuses a reorder that is not a permutation', async () => {

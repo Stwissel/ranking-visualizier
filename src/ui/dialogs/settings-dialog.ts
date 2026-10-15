@@ -10,7 +10,7 @@ export class RvSettingsDialog extends DialogElement {
   static override properties = {
     settings: { attribute: false },
     status: { attribute: false },
-    busy: { state: true },
+    busy: { type: Boolean },
   }
 
   settings!: SyncSettings

@@ -186,6 +186,7 @@ export class RvApp extends LitElement {
     if (this.route.view === 'compare') {
       const rids = this.rankings.map((r) => shortId(r._id)).filter((rid) => next.has(rid))
       if (rids.length >= 2) navigate({ view: 'compare', rids })
+      else navigate({ view: 'home' })
     }
   }
 

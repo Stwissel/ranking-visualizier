@@ -16,8 +16,16 @@ import { formatDate } from './format.js'
 
 interface Point {
   rankingIndex: number
-  rank: number
+  /** Undefined where the topic is absent from that ranking: the line breaks there. */
+  rank: number | undefined
   description: string
+}
+
+/** A point the topic is ranked at. */
+type RankedPoint = Point & { rank: number }
+
+function isRanked(point: Point): point is RankedPoint {
+  return point.rank !== undefined
 }
 
 interface Series {
@@ -27,24 +35,46 @@ interface Series {
   points: Point[]
 }
 
+/** The last ranking a topic appears in; every series has at least one. */
+function lastRanked(series: Series): RankedPoint {
+  return series.points.filter(isRanked).at(-1)!
+}
+
 const MARGIN = { top: 16, right: 150, bottom: 40, left: 36 }
 const ROW_HEIGHT = 34
 const MIN_HEIGHT = 180
 const POINT_RADIUS = 11
 const DURATION = 300
 
-/** Black or white, whichever reads better on `hex`. */
-function inkOn(hex: string): string {
+/** WCAG relative luminance of a `#rrggbb` colour. */
+function luminance(hex: string): number {
   const value = Number.parseInt(hex.slice(1), 16)
   const channel = (c: number) => {
     const s = c / 255
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
   }
-  const luminance =
+  return (
     0.2126 * channel((value >> 16) & 255) +
     0.7152 * channel((value >> 8) & 255) +
     0.0722 * channel(value & 255)
-  return luminance > 0.4 ? '#111111' : '#ffffff'
+  )
+}
+
+/** WCAG contrast ratio between two luminances. */
+function contrast(a: number, b: number): number {
+  const [light, dark] = a > b ? [a, b] : [b, a]
+  return (light + 0.05) / (dark + 0.05)
+}
+
+const INK_DARK = '#111111'
+const INK_LIGHT = '#ffffff'
+
+/** Of black and white, the ink with the higher contrast ratio on `hex`. */
+export function inkOn(hex: string): string {
+  const background = luminance(hex)
+  return contrast(background, luminance(INK_DARK)) >= contrast(background, luminance(INK_LIGHT))
+    ? INK_DARK
+    : INK_LIGHT
 }
 
 export class RvBumpChart extends LitElement {
@@ -104,21 +134,27 @@ export class RvBumpChart extends LitElement {
         const topic = this.topics.get(item.topicId)
         let entry = byTopic.get(item.topicId)
         if (!entry) {
+          // One point per ranking, ranked or not, so a topic absent from a middle ranking
+          // shows a gap rather than a line drawn straight across it.
           entry = {
             topicId: item.topicId,
             title: topic?.title ?? 'Unknown topic',
             colour: topic?.colour ?? this.fallbackColour,
-            points: [],
+            points: ordered.map((_, i) => ({ rankingIndex: i, rank: undefined, description: '' })),
           }
           byTopic.set(item.topicId, entry)
         }
-        entry.points.push({ rankingIndex, rank: index + 1, description: item.description })
+        entry.points[rankingIndex] = {
+          rankingIndex,
+          rank: index + 1,
+          description: item.description,
+        }
       })
     })
     // Stable order: by rank in the last ranking they appear in, then title.
     return [...byTopic.values()].sort((a, b) => {
-      const lastA = a.points[a.points.length - 1]!
-      const lastB = b.points[b.points.length - 1]!
+      const lastA = lastRanked(a)
+      const lastB = lastRanked(b)
       return (
         lastB.rankingIndex - lastA.rankingIndex ||
         lastA.rank - lastB.rank ||
@@ -155,8 +191,9 @@ export class RvBumpChart extends LitElement {
       .domain([1, this.maxRank])
       .range([MARGIN.top + ROW_HEIGHT / 2, height - MARGIN.bottom - ROW_HEIGHT / 2])
     const path = line<Point>()
+      .defined(isRanked)
       .x((point) => x(point.rankingIndex) ?? 0)
-      .y((point) => y(point.rank))
+      .y((point) => y(point.rank ?? 1))
       .curve(curveMonotoneX)
 
     const root = select(svg).attr('viewBox', `0 0 ${width} ${height}`).attr('height', height)
@@ -254,7 +291,10 @@ export class RvBumpChart extends LitElement {
       .attr(
         'aria-label',
         (entry) =>
-          `${entry.title}: ${entry.points.map((p) => `rank ${p.rank} in ${ordered[p.rankingIndex]?.name ?? ''}`).join(', ')}`,
+          `${entry.title}: ${entry.points
+            .filter(isRanked)
+            .map((p) => `rank ${p.rank} in ${ordered[p.rankingIndex]?.name ?? ''}`)
+            .join(', ')}`,
       )
       .on('pointerenter', (_, entry) => {
         this.highlighted = entry.topicId
@@ -267,7 +307,7 @@ export class RvBumpChart extends LitElement {
         this.highlighted = entry.topicId
         this.hover = {
           topicId: entry.topicId,
-          rankingIndex: entry.points[entry.points.length - 1]!.rankingIndex,
+          rankingIndex: lastRanked(entry).rankingIndex,
         }
       })
       .on('blur', () => {
@@ -287,7 +327,9 @@ export class RvBumpChart extends LitElement {
       .selectAll<SVGGElement, Point>('g.point')
       .data(
         (entry) =>
-          entry.points.map((point) => ({ ...point, topicId: entry.topicId, colour: entry.colour })),
+          entry.points
+            .filter(isRanked)
+            .map((point) => ({ ...point, topicId: entry.topicId, colour: entry.colour })),
         (point) => String(point.rankingIndex),
       )
       .join((enter) => {
@@ -320,11 +362,8 @@ export class RvBumpChart extends LitElement {
       .text((entry) => (rightMargin > 24 ? entry.title : ''))
       .transition()
       .duration(DURATION)
-      .attr(
-        'x',
-        (entry) => (x(entry.points[entry.points.length - 1]!.rankingIndex) ?? 0) + POINT_RADIUS + 8,
-      )
-      .attr('y', (entry) => y(entry.points[entry.points.length - 1]!.rank))
+      .attr('x', (entry) => (x(lastRanked(entry).rankingIndex) ?? 0) + POINT_RADIUS + 8)
+      .attr('y', (entry) => y(lastRanked(entry).rank))
 
     svg.toggleAttribute('data-focus', this.highlighted !== undefined)
   }
@@ -335,7 +374,7 @@ export class RvBumpChart extends LitElement {
     const series = this.series
     const focused = series.find((entry) => entry.topicId === (hovered?.topicId ?? this.highlighted))
     const point = hovered
-      ? focused?.points.find((p) => p.rankingIndex === hovered.rankingIndex)
+      ? focused?.points.filter(isRanked).find((p) => p.rankingIndex === hovered.rankingIndex)
       : undefined
     return html`
       <svg class="rv-chart" role="group" aria-label="Bump chart of ranks across the selected rankings" height=${this.height}>
@@ -351,7 +390,7 @@ export class RvBumpChart extends LitElement {
                 ${
                   point
                     ? html` · rank ${point.rank} in ${ordered[point.rankingIndex]?.name ?? ''}${point.description ? html`: <span class="rv-quiet">${point.description}</span>` : nothing}`
-                    : html` · ${focused.points.map((p) => `${p.rank}`).join(' → ')}`
+                    : html` · ${focused.points.map((p) => (p.rank === undefined ? '–' : `${p.rank}`)).join(' → ')}`
                 }`
             : html`<span class="rv-quiet">Hover or focus a line for details. Rank 1 is the top.</span>`
         }

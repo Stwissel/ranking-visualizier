@@ -19,7 +19,7 @@ import {
   shortId,
   type TopicDoc,
 } from './model.js'
-import type { Store } from './store.js'
+import { requireAllWritten, type Store } from './store.js'
 
 export const EXPORT_FORMAT = 'ranking-visualizier'
 export const EXPORT_VERSION = 1
@@ -222,8 +222,8 @@ export interface ImportResult {
 
 /**
  * Writes the file's sessions into the store. A session whose id already exists is handled by
- * `onClash`: `replace` deletes the existing session first, `copy` imports under fresh ids,
- * `skip` leaves it alone.
+ * `onClash`: `replace` overwrites it in place, `copy` imports under fresh ids, `skip` leaves
+ * it alone.
  */
 export async function importSessions(
   store: Store,
@@ -236,21 +236,39 @@ export async function importSessions(
   for (const original of file.sessions) {
     const sid = shortId(original.session._id)
     let entry = original
+    let docs: PouchDB.Core.PutDocument<AnyDoc>[] = [
+      entry.session,
+      ...entry.topics,
+      ...entry.rankings,
+    ]
     if (clashes.has(sid)) {
       if (onClash === 'skip') {
         result.skipped.push(sid)
         continue
       }
-      if (onClash === 'replace') await store.deleteSession(sid)
-      if (onClash === 'copy') entry = duplicateSession(original, idGenerator)
+      if (onClash === 'copy') {
+        entry = duplicateSession(original, idGenerator)
+        docs = [entry.session, ...entry.topics, ...entry.rankings]
+      }
+      if (onClash === 'replace') {
+        // Carry the current revision of every document the file also has, so each becomes an
+        // update rather than a conflict, and delete only what the file no longer contains: one
+        // batch, nothing removed before its replacement is written.
+        const existing = new Map((await store.sessionDocuments(sid)).map((doc) => [doc._id, doc]))
+        docs = docs.map((doc) => {
+          const current = existing.get(doc._id)
+          return current ? { ...doc, _rev: current._rev } : doc
+        })
+        const incoming = new Set(docs.map((doc) => doc._id))
+        for (const doc of existing.values()) {
+          if (!incoming.has(doc._id)) docs.push({ ...doc, _deleted: true })
+        }
+      }
     }
-    const docs: AnyDoc[] = [entry.session, ...entry.topics, ...entry.rankings]
-    const responses = await store.db.bulkDocs(docs)
-    const failed = responses.filter((response) => 'error' in response && response.error)
-    if (failed.length > 0) {
-      throw new ImportError(
-        `Could not write ${failed.length} document(s) of session "${entry.session.name}"`,
-      )
+    try {
+      requireAllWritten(await store.db.bulkDocs(docs), `of session "${entry.session.name}"`)
+    } catch (error) {
+      throw new ImportError(error instanceof Error ? error.message : String(error))
     }
     result.imported.push(shortId(entry.session._id))
   }

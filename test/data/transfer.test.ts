@@ -106,6 +106,24 @@ describe('import', () => {
     expect(copyRankings[0]?.items.map((item) => item.topicId)).toEqual(['copy2', 'copy3'])
   })
 
+  it('replace updates in place and drops only what the file no longer has', async () => {
+    const { store, sid, a, b } = await populated()
+    const file = await exportSessions(store)
+    // Locally, a topic the file knows nothing about appears and Alpha is renamed.
+    const extra = await store.createTopic(sid, { title: 'Local only', colour: '#123456' })
+    await store.updateTopic(sid, shortId(a._id), { title: 'Alpha renamed' })
+
+    await importSessions(store, file, 'replace')
+
+    const topics = await store.listTopics(sid)
+    expect(topics.map((topic) => topic.title)).toEqual(['Alpha', 'Beta'])
+    expect(topics.map((topic) => topic._id)).toEqual([a._id, b._id])
+    await expect(store.getTopic(sid, shortId(extra._id))).rejects.toThrow()
+    // Replacing twice is idempotent: revisions are carried, so nothing conflicts.
+    await importSessions(store, file, 'replace')
+    expect((await store.listTopics(sid)).map((topic) => topic.title)).toEqual(['Alpha', 'Beta'])
+  })
+
   it('duplicateSession rewrites every id consistently', async () => {
     const { store } = await populated()
     const [entry] = (await exportSessions(store)).sessions

@@ -19,6 +19,7 @@ export class RvRankingEditor extends LitElement {
     topics: { attribute: false },
     rankings: { attribute: false },
     announcement: { state: true },
+    pending: { state: true },
   }
 
   store: Store | undefined
@@ -28,6 +29,11 @@ export class RvRankingEditor extends LitElement {
   topics: ReadonlyMap<string, TopicDoc> = new Map()
   rankings: RankingDoc[] = []
   announcement = ''
+  /**
+   * True from the start of a move until the parent hands back the ranking that contains it.
+   * A second move read from the old order would silently undo the first, so the controls wait.
+   */
+  pending = false
 
   private sortable: Sortable | undefined
   private dragAnchor: Node | null = null
@@ -42,7 +48,9 @@ export class RvRankingEditor extends LitElement {
     this.sortable = undefined
   }
 
-  protected override updated(): void {
+  protected override updated(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has('ranking')) this.pending = false
+    this.sortable?.option('disabled', this.pending)
     const list = this.querySelector<HTMLElement>('.rv-rank-list')
     if (!list) {
       this.sortable?.destroy()
@@ -82,7 +90,8 @@ export class RvRankingEditor extends LitElement {
   }
 
   private async move(from: number, to: number): Promise<void> {
-    if (!this.store) return
+    if (!this.store || this.pending) return
+    this.pending = true
     const ids = this.items.map((item) => item.topicId)
     const [moved] = ids.splice(from, 1)
     if (moved === undefined) return
@@ -93,6 +102,7 @@ export class RvRankingEditor extends LitElement {
       store.reorderRanking(this.sid, shortId(this.ranking._id), ids),
     )
     if (ok) this.announcement = `Moved ${title} to position ${to + 1} of ${ids.length}.`
+    else this.pending = false
   }
 
   private async saveDescription(topicId: string, value: string): Promise<void> {
@@ -211,10 +221,10 @@ export class RvRankingEditor extends LitElement {
         @change=${(e: Event) => void this.saveDescription(topicId, (e.target as HTMLTextAreaElement).value)}
       ><span slot="label" class="wa-visually-hidden">Description of ${title} in this ranking</span></wa-textarea>
       <div class="rv-rank-actions wa-stack wa-gap-3xs">
-        <wa-button size="s" appearance="plain" ?disabled=${index === 0} @click=${() => void this.move(index, index - 1)}>
+        <wa-button size="s" appearance="plain" ?disabled=${index === 0 || this.pending} @click=${() => void this.move(index, index - 1)}>
           <wa-icon name="arrow-up" label=${`Move ${title} up`}></wa-icon>
         </wa-button>
-        <wa-button size="s" appearance="plain" ?disabled=${index === last} @click=${() => void this.move(index, index + 1)}>
+        <wa-button size="s" appearance="plain" ?disabled=${index === last || this.pending} @click=${() => void this.move(index, index + 1)}>
           <wa-icon name="arrow-down" label=${`Move ${title} down`}></wa-icon>
         </wa-button>
         ${

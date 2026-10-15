@@ -55,6 +55,15 @@ function requireColour(value: string): string {
   return value.toLowerCase()
 }
 
+/** `bulkDocs` is not transactional: a failed document is an error entry, not a rejection. */
+export function requireAllWritten(
+  responses: (PouchDB.Core.Response | PouchDB.Core.Error)[],
+  what: string,
+): void {
+  const failed = responses.filter((response) => 'error' in response && response.error)
+  if (failed.length > 0) throw new Error(`Could not write ${failed.length} document(s) ${what}`)
+}
+
 function requireDate(value: string): string {
   if (!isIsoDate(value)) throw new ValidationError(`Date must be YYYY-MM-DD, got "${value}"`)
   return value
@@ -110,7 +119,8 @@ export class Store {
   /** Removes the session and every topic and ranking in it. */
   async deleteSession(sid: SessionId): Promise<void> {
     const docs = await this.sessionDocuments(sid)
-    await this.db.bulkDocs(docs.map((doc) => ({ ...doc, _deleted: true })))
+    const responses = await this.db.bulkDocs(docs.map((doc) => ({ ...doc, _deleted: true })))
+    requireAllWritten(responses, `while deleting session ${sid}`)
   }
 
   /** Every document belonging to a session: the session itself, its topics and its rankings. */
@@ -190,7 +200,9 @@ export class Store {
         ...ranking,
         items: ranking.items.filter((item) => item.topicId !== tid),
       }))
-    if (touched.length > 0) await this.db.bulkDocs(touched)
+    if (touched.length > 0) {
+      requireAllWritten(await this.db.bulkDocs(touched), `while retiring topic ${tid}`)
+    }
   }
 
   /** Removes the topic document and its item from every ranking. */
@@ -202,7 +214,10 @@ export class Store {
         ...ranking,
         items: ranking.items.filter((item) => item.topicId !== tid),
       }))
-    await this.db.bulkDocs([...rankings, { ...topic, _deleted: true }])
+    requireAllWritten(
+      await this.db.bulkDocs([...rankings, { ...topic, _deleted: true }]),
+      `while deleting topic ${tid}`,
+    )
   }
 
   /** Re-adds a topic (typically a retired one) at the bottom of a ranking. */

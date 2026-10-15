@@ -6,7 +6,7 @@
   "description": "Rank topics by drag and drop, keep dated rankings, and watch priorities shift over time.",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "vite",

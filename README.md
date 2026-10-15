@@ -22,7 +22,7 @@ rankings and the chart keep its history), or deleted completely.
 
 ## Running it
 
-Requires Node 22 or later.
+Requires Node 22.12.0 or later (Vite 8 needs it).
 
 ```sh
 npm ci

@@ -2,7 +2,7 @@ import '../../src/ui/styles/app.css'
 import '../../src/ui/bump-chart.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { RankingDoc, TopicDoc } from '../../src/data/model.js'
-import type { RvBumpChart } from '../../src/ui/bump-chart.js'
+import { inkOn, type RvBumpChart } from '../../src/ui/bump-chart.js'
 import { until } from './support/browser-store.js'
 
 afterEach(() => {
@@ -56,6 +56,28 @@ describe('<rv-bump-chart>', () => {
       el.getAttribute('stroke'),
     )
     expect(lines.sort()).toEqual(['#1baf7a', '#2a78d6', '#eb6834'])
+  })
+
+  it('breaks the line where a topic is missing from a middle ranking', async () => {
+    const chart = await mount([
+      ranking('r1', '2026-01-01', ['a', 'b']),
+      ranking('r2', '2026-02-01', ['b']),
+      ranking('r3', '2026-03-01', ['a', 'b']),
+    ])
+    const paths = [...chart.querySelectorAll<SVGPathElement>('path.topic-line')]
+    const alpha = paths.find((path) => path.getAttribute('stroke') === '#2a78d6')!
+    // Two separate subpaths: a second "M" after the gap.
+    expect(alpha.getAttribute('d')?.match(/M/g)).toHaveLength(2)
+    const beta = paths.find((path) => path.getAttribute('stroke') === '#eb6834')!
+    expect(beta.getAttribute('d')?.match(/M/g)).toHaveLength(1)
+    expect(chart.querySelectorAll('g.point')).toHaveLength(5)
+  })
+
+  it('picks the rank-number ink by contrast ratio', () => {
+    expect(inkOn('#eb6834')).toBe('#111111')
+    expect(inkOn('#2a78d6')).toBe('#ffffff')
+    expect(inkOn('#eda100')).toBe('#111111')
+    expect(inkOn('#6250d6')).toBe('#ffffff')
   })
 
   it('highlights a focused topic and describes it in the live region', async () => {

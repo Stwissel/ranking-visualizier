@@ -32,9 +32,9 @@ import { useBundledIcons } from './ui/icons.js'
 // Before anything renders: registering replaces Web Awesome's CDN-backed default library.
 useBundledIcons()
 
-import { openLocalDatabase, openRemoteDatabase } from './data/db.js'
 import { Store } from './data/store.js'
 import { SyncController } from './data/sync.js'
+import { openLocalDatabase, openRemoteDatabase } from './database.js'
 import { applyScheme, readSchemePreference } from './ui/scheme.js'
 
 import './ui/app.js'

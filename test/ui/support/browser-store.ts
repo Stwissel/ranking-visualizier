@@ -13,9 +13,12 @@ export function browserStore(): Store {
 }
 
 /** Waits for a condition, polling, so a test can follow the store's change feed. */
-export async function until(condition: () => boolean, timeout = 2000): Promise<void> {
+export async function until(
+  condition: () => boolean | Promise<boolean>,
+  timeout = 2000,
+): Promise<void> {
   const deadline = Date.now() + timeout
-  while (!condition()) {
+  while (!(await condition())) {
     if (Date.now() > deadline) throw new Error('Timed out waiting for condition')
     await new Promise((resolve) => setTimeout(resolve, 20))
   }

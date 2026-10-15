@@ -87,8 +87,14 @@ export function isHexColour(value: unknown): value is string {
   return typeof value === 'string' && HEX_COLOUR.test(value)
 }
 
+/**
+ * `YYYY-MM-DD` naming a day that exists. `Date.parse` alone is not enough: V8 rolls
+ * `2026-02-30` into March rather than rejecting it, so the parsed date is compared back.
+ */
 export function isIsoDate(value: unknown): value is string {
-  return typeof value === 'string' && ISO_DATE.test(value) && !Number.isNaN(Date.parse(value))
+  if (typeof value !== 'string' || !ISO_DATE.test(value)) return false
+  const time = Date.parse(`${value}T00:00:00Z`)
+  return !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === value
 }
 
 /**

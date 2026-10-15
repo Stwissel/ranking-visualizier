@@ -69,10 +69,8 @@ describe('<rv-ranking-editor>', () => {
       .querySelectorAll('wa-button')[1]!
     down.click()
     let stored: RankingDoc | undefined
-    await until(() => {
-      void store.getRanking(sid, shortId(ranking._id)).then((doc) => {
-        stored = doc
-      })
+    await until(async () => {
+      stored = await store.getRanking(sid, shortId(ranking._id))
       return stored?.items[0]?.topicId === ranking.items[1]?.topicId
     })
     expect(stored!.items.map((item) => item.topicId)).toEqual([
