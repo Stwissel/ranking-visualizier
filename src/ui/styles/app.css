@@ -75,6 +75,7 @@ wa-page[view="mobile"] .rv-main {
 }
 
 .rv-nav-row {
+  flex-wrap: nowrap;
   padding: var(--wa-space-2xs) var(--wa-space-xs);
   border-radius: var(--wa-border-radius-m);
 }
