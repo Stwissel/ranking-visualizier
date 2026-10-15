@@ -1,0 +1,406 @@
+/* Application CSS. Global rather than per component, because every component renders into
+   the light DOM so that Web Awesome's utility classes and <wa-page> slots reach it. Values
+   come from --wa-* tokens; the only literals are the topic colours, which are data. */
+
+rv-app,
+rv-rankings-nav,
+rv-ranking-editor,
+rv-topics-view,
+rv-compare-view,
+rv-bump-chart {
+  display: block;
+}
+
+/* <wa-page> --------------------------------------------------------------------------- */
+
+wa-page {
+  --menu-width: 17rem;
+}
+
+wa-page[view="mobile"] {
+  --menu-width: auto;
+}
+
+/* The free build ships no responsive helpers, so the two <wa-page> documents rely on are
+   defined here, scoped to the page's own view attribute. */
+wa-page[view="desktop"] .wa-mobile-only,
+wa-page[view="desktop"] [data-toggle-nav],
+wa-page[view="mobile"] .wa-desktop-only {
+  display: none;
+}
+
+.rv-header {
+  padding: var(--wa-space-s) var(--wa-space-m);
+  border-block-end: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
+  background: var(--wa-color-surface-default);
+}
+
+.rv-header-title,
+.rv-header-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.rv-brand {
+  color: var(--wa-color-text-normal);
+  text-decoration: none;
+  font-weight: var(--wa-font-weight-semibold);
+}
+
+.rv-brand wa-icon {
+  color: var(--wa-color-brand-fill-loud);
+}
+
+wa-page[view="mobile"] .rv-brand-name {
+  display: none;
+}
+
+.rv-main {
+  padding: var(--wa-space-l) var(--wa-space-xl);
+  max-inline-size: 72rem;
+}
+
+wa-page[view="mobile"] .rv-main {
+  padding: var(--wa-space-m);
+}
+
+/* Navigation ---------------------------------------------------------------------------- */
+
+.rv-nav {
+  padding: var(--wa-space-m);
+}
+
+.rv-nav-heading {
+  margin: 0;
+  color: var(--wa-color-text-quiet);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--wa-font-size-xs);
+  font-weight: var(--wa-font-weight-semibold);
+}
+
+.rv-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rv-nav-row {
+  display: flex;
+  align-items: center;
+  gap: var(--wa-space-xs);
+  padding: var(--wa-space-2xs) var(--wa-space-xs);
+  border-radius: var(--wa-border-radius-m);
+}
+
+.rv-nav-row:hover {
+  background: var(--wa-color-neutral-fill-quiet);
+}
+
+.rv-nav-row[aria-current="page"] {
+  background: var(--wa-color-brand-fill-quiet);
+}
+
+.rv-nav-link {
+  flex: 1;
+  min-inline-size: 0;
+  color: var(--wa-color-text-normal);
+  text-decoration: none;
+}
+
+.rv-nav-link:hover {
+  text-decoration: underline;
+}
+
+.rv-nav-link-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rv-nav-link-date {
+  display: block;
+  color: var(--wa-color-text-quiet);
+  font-size: var(--wa-font-size-xs);
+}
+
+/* Shared page pieces -------------------------------------------------------------------- */
+
+.rv-page-title {
+  margin: 0;
+  font-size: var(--wa-font-size-xl);
+  font-weight: var(--wa-font-weight-semibold);
+  line-height: var(--wa-line-height-condensed);
+}
+
+.rv-page-subtitle {
+  margin: 0;
+  color: var(--wa-color-text-quiet);
+}
+
+.rv-quiet {
+  color: var(--wa-color-text-quiet);
+}
+
+.rv-empty {
+  text-align: center;
+  padding-block: var(--wa-space-2xl);
+  color: var(--wa-color-text-quiet);
+}
+
+.rv-empty > wa-icon {
+  font-size: var(--wa-font-size-3xl);
+  color: var(--wa-color-neutral-fill-loud);
+}
+
+.rv-swatch {
+  flex: none;
+  inline-size: 1em;
+  block-size: 1em;
+  border-radius: var(--wa-border-radius-circle);
+  background: var(--rv-colour, var(--wa-color-neutral-fill-loud));
+  box-shadow: inset 0 0 0 var(--wa-border-width-s) rgb(0 0 0 / 0.15);
+}
+
+/* Ranking editor ------------------------------------------------------------------------ */
+
+.rv-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-xs);
+}
+
+.rv-rank-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  grid-template-areas:
+    "rank handle title actions"
+    "rank handle description actions";
+  column-gap: var(--wa-space-s);
+  row-gap: var(--wa-space-2xs);
+  align-items: center;
+  padding: var(--wa-space-s) var(--wa-space-m);
+  background: var(--wa-color-surface-raised);
+  border: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
+  border-inline-start: var(--wa-space-xs) solid var(--rv-colour, var(--wa-color-neutral-fill-loud));
+  border-radius: var(--wa-border-radius-m);
+  box-shadow: var(--wa-shadow-s);
+  transition: box-shadow var(--wa-transition-fast);
+}
+
+.rv-rank-item:focus-within {
+  box-shadow: var(--wa-shadow-m);
+}
+
+.rv-rank-item.sortable-ghost {
+  opacity: 0.4;
+}
+
+.rv-rank-item.sortable-chosen {
+  box-shadow: var(--wa-shadow-l);
+}
+
+.rv-rank-number {
+  grid-area: rank;
+  min-inline-size: 2ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--wa-font-size-l);
+  font-weight: var(--wa-font-weight-semibold);
+  color: var(--wa-color-text-quiet);
+}
+
+.rv-handle {
+  grid-area: handle;
+  cursor: grab;
+  color: var(--wa-color-text-quiet);
+  touch-action: none;
+}
+
+.rv-rank-item.sortable-chosen .rv-handle {
+  cursor: grabbing;
+}
+
+.rv-rank-title {
+  grid-area: title;
+  margin: 0;
+  font-weight: var(--wa-font-weight-semibold);
+}
+
+.rv-rank-description {
+  grid-area: description;
+}
+
+.rv-rank-actions {
+  grid-area: actions;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-3xs);
+}
+
+wa-page[view="mobile"] .rv-rank-item {
+  grid-template-columns: auto auto 1fr;
+  grid-template-areas:
+    "rank handle title"
+    "rank handle description"
+    "rank handle actions";
+}
+
+wa-page[view="mobile"] .rv-rank-actions {
+  flex-direction: row;
+}
+
+/* Topics ----------------------------------------------------------------------------- */
+
+.rv-topic-grid {
+  --min-column-size: 16rem;
+}
+
+.rv-topic-card::part(body) {
+  padding-block: var(--wa-space-s);
+}
+
+/* Compare ---------------------------------------------------------------------------- */
+
+.rv-table-wrap {
+  overflow-x: auto;
+}
+
+.rv-compare-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.rv-compare-table th,
+.rv-compare-table td {
+  padding: var(--wa-space-xs) var(--wa-space-s);
+  border-block-end: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.rv-compare-table th[scope="col"] {
+  color: var(--wa-color-text-quiet);
+  font-weight: var(--wa-font-weight-semibold);
+  font-size: var(--wa-font-size-s);
+}
+
+.rv-compare-table td.rv-rank-cell {
+  text-align: end;
+  white-space: nowrap;
+}
+
+.rv-delta-up {
+  color: var(--wa-color-success-on-quiet);
+}
+
+.rv-delta-down {
+  color: var(--wa-color-danger-on-quiet);
+}
+
+.rv-delta-same {
+  color: var(--wa-color-text-quiet);
+}
+
+/* Bump chart ------------------------------------------------------------------------- */
+
+.rv-chart {
+  inline-size: 100%;
+  display: block;
+  font-family: var(--wa-font-family-body);
+  font-size: var(--wa-font-size-s);
+}
+
+.rv-chart .axis text,
+.rv-chart .rank-axis text {
+  fill: var(--wa-color-text-quiet);
+}
+
+.rv-chart .axis line,
+.rv-chart .grid line {
+  stroke: var(--wa-color-surface-border);
+}
+
+.rv-chart .topic-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity var(--wa-transition-normal);
+}
+
+.rv-chart .topic-point {
+  stroke: var(--wa-color-surface-default);
+  stroke-width: 2;
+  transition: opacity var(--wa-transition-normal);
+}
+
+.rv-chart .topic-rank {
+  fill: var(--wa-color-text-normal);
+  font-size: var(--wa-font-size-xs);
+  font-weight: var(--wa-font-weight-semibold);
+  pointer-events: none;
+}
+
+.rv-chart .topic-label {
+  fill: var(--wa-color-text-normal);
+  font-weight: var(--wa-font-weight-semibold);
+}
+
+.rv-chart .topic {
+  cursor: pointer;
+  outline: none;
+}
+
+.rv-chart[data-focus] .topic:not([data-active]) {
+  opacity: 0.18;
+}
+
+.rv-chart .topic:focus-visible .topic-line {
+  stroke-width: 5;
+}
+
+.rv-chart-detail {
+  min-block-size: 3.5em;
+}
+
+/* Sync badge ------------------------------------------------------------------------- */
+
+.rv-sync-button::part(base) {
+  gap: var(--wa-space-xs);
+}
+
+/* Forms ------------------------------------------------------------------------------- */
+
+.rv-form-row {
+  --min-column-size: 12rem;
+}
+
+.rv-file-input {
+  font: inherit;
+  color: var(--wa-color-text-normal);
+}
+
+/* The import picker is driven from the menu; the native control itself never shows. */
+.rv-hidden {
+  display: none;
+}
+
+.rv-topic-title {
+  margin: 0;
+}
+
+/* Visually hidden live region for drag and keyboard announcements. */
+.rv-live {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

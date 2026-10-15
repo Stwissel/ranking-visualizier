@@ -1,0 +1,56 @@
+{
+  "name": "ranking-visualizier",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rank topics by drag and drop, keep dated rankings, and watch priorities shift over time.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "verify": "npm run check && npm run typecheck && npm test && vite build"
+  },
+  "dependencies": {
+    "@awesome.me/webawesome": "^3.14.0",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.2.0",
+    "d3-transition": "^3.0.1",
+    "events": "^3.3.0",
+    "lit": "^3.3.3",
+    "pouchdb-browser": "^9.0.0",
+    "sortablejs": "^1.15.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@fortawesome/fontawesome-free": "^7.3.1",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-selection": "^3.0.12",
+    "@types/d3-shape": "^3.2.0",
+    "@types/d3-transition": "^3.0.9",
+    "@types/node": "^22.0.0",
+    "@types/pouchdb-adapter-memory": "^6.1.6",
+    "@types/pouchdb-browser": "^6.1.5",
+    "@types/pouchdb-core": "^7.0.15",
+    "@types/pouchdb-replication": "^6.4.7",
+    "@types/sortablejs": "^1.15.9",
+    "@vitest/browser": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.11",
+    "playwright": "^1.64.1",
+    "pouchdb-adapter-memory": "^9.0.0",
+    "pouchdb-core": "^9.0.0",
+    "pouchdb-replication": "^9.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^4.1.11"
+  }
+}
