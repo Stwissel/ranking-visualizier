@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type { AnyDoc } from '../../src/data/model.js'
 import { shortId } from '../../src/data/model.js'
+import { Store } from '../../src/data/store.js'
 import {
   duplicateSession,
   exportSessions,
@@ -122,6 +124,40 @@ describe('import', () => {
     // Replacing twice is idempotent: revisions are carried, so nothing conflicts.
     await importSessions(store, file, 'replace')
     expect((await store.listTopics(sid)).map((topic) => topic.title)).toEqual(['Alpha', 'Beta'])
+  })
+
+  it('a failed replace write keeps the session complete and deletes nothing', async () => {
+    const { store, sid, a, b, ranking } = await populated()
+    const file = await exportSessions(store)
+    const extra = await store.createTopic(sid, { title: 'Local only', colour: '#123456' })
+    await store.updateTopic(sid, shortId(a._id), { title: 'Alpha renamed' })
+
+    // The ranking's write fails, as a concurrent edit between read and write would make it.
+    const failing = Object.create(store.db) as typeof store.db
+    failing.bulkDocs = (async (docs: PouchDB.Core.PutDocument<AnyDoc>[]) => {
+      const results = await store.db.bulkDocs(docs.filter((doc) => doc._id !== ranking._id))
+      return docs.map((doc) =>
+        doc._id === ranking._id
+          ? {
+              error: true,
+              id: doc._id,
+              name: 'conflict',
+              message: 'Document update conflict',
+              status: 409,
+            }
+          : results.find((r) => r.id === doc._id)!,
+      )
+    }) as typeof store.db.bulkDocs
+    const flaky = new Store(failing)
+
+    await expect(importSessions(flaky, file, 'replace')).rejects.toBeInstanceOf(ImportError)
+
+    const topics = await store.listTopics(sid)
+    // Alpha was overwritten, Beta untouched, the local-only topic was not deleted.
+    expect(topics.map((topic) => topic.title).sort()).toEqual(['Alpha', 'Beta', 'Local only'])
+    expect((await store.getTopic(sid, shortId(extra._id))).title).toBe('Local only')
+    expect((await store.getRanking(sid, shortId(ranking._id))).items[0]?.description).toBe('first')
+    expect(shortId(b._id)).toBeTruthy()
   })
 
   it('duplicateSession rewrites every id consistently', async () => {

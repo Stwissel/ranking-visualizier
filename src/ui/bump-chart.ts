@@ -35,6 +35,15 @@ interface Series {
   points: Point[]
 }
 
+/** Elements not yet positioned, i.e. created by this draw: `transform`, `d`, `x` all absent. */
+function isFresh(this: Element): boolean {
+  return !this.hasAttribute('d') && !this.hasAttribute('transform') && !this.hasAttribute('x')
+}
+
+function isSettled(this: Element): boolean {
+  return !isFresh.call(this)
+}
+
 /** The last ranking a topic appears in; every series has at least one. */
 function lastRanked(series: Series): RankedPoint {
   return series.points.filter(isRanked).at(-1)!
@@ -315,12 +324,14 @@ export class RvBumpChart extends LitElement {
         this.hover = undefined
       })
     topicGroups.select('title').text((entry) => entry.title)
-    topicGroups
+    // A node drawn for the first time sits at its final position at once; transitions only
+    // animate a change to something already on screen.
+    const lines = topicGroups
       .select<SVGPathElement>('path.topic-line')
       .attr('stroke', (entry) => entry.colour)
-      .transition()
-      .duration(DURATION)
-      .attr('d', (entry) => path(entry.points) ?? '')
+    const lineShape = (entry: Series) => path(entry.points) ?? ''
+    lines.filter(isFresh).attr('d', lineShape)
+    lines.filter(isSettled).transition().duration(DURATION).attr('d', lineShape)
 
     const points = topicGroups
       .select<SVGGElement>('g.points')
@@ -352,18 +363,18 @@ export class RvBumpChart extends LitElement {
       .select<SVGTextElement>('text.topic-rank')
       .attr('fill', (point) => inkOn(point.colour))
       .text((point) => String(point.rank))
-    points
-      .transition()
-      .duration(DURATION)
-      .attr('transform', (point) => `translate(${x(point.rankingIndex) ?? 0}, ${y(point.rank)})`)
+    const place = (point: RankedPoint) =>
+      `translate(${x(point.rankingIndex) ?? 0}, ${y(point.rank)})`
+    points.filter(isFresh).attr('transform', place)
+    points.filter(isSettled).transition().duration(DURATION).attr('transform', place)
 
-    topicGroups
+    const labels = topicGroups
       .select<SVGTextElement>('text.topic-label')
       .text((entry) => (rightMargin > 24 ? entry.title : ''))
-      .transition()
-      .duration(DURATION)
-      .attr('x', (entry) => (x(lastRanked(entry).rankingIndex) ?? 0) + POINT_RADIUS + 8)
-      .attr('y', (entry) => y(lastRanked(entry).rank))
+    const labelX = (entry: Series) => (x(lastRanked(entry).rankingIndex) ?? 0) + POINT_RADIUS + 8
+    const labelY = (entry: Series) => y(lastRanked(entry).rank)
+    labels.filter(isFresh).attr('x', labelX).attr('y', labelY)
+    labels.filter(isSettled).transition().duration(DURATION).attr('x', labelX).attr('y', labelY)
 
     svg.toggleAttribute('data-focus', this.highlighted !== undefined)
   }

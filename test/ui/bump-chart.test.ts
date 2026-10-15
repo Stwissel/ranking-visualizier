@@ -34,8 +34,12 @@ async function mount(rankings: RankingDoc[]) {
   chart.topics = topics
   document.body.append(chart)
   await chart.updateComplete
-  // The ResizeObserver reports the width asynchronously; the first draw follows it.
-  await until(() => chart.querySelectorAll('path.topic-line').length > 0)
+  // The ResizeObserver reports the width asynchronously; the first draw follows it and
+  // positions every line at once.
+  await until(() => {
+    const paths = [...chart.querySelectorAll('path.topic-line')]
+    return paths.length > 0 && paths.every((path) => path.hasAttribute('d'))
+  })
   return chart
 }
 

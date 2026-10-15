@@ -236,6 +236,7 @@ export async function importSessions(
   for (const original of file.sessions) {
     const sid = shortId(original.session._id)
     let entry = original
+    const leftovers: PouchDB.Core.PutDocument<AnyDoc>[] = []
     let docs: PouchDB.Core.PutDocument<AnyDoc>[] = [
       entry.session,
       ...entry.topics,
@@ -252,8 +253,9 @@ export async function importSessions(
       }
       if (onClash === 'replace') {
         // Carry the current revision of every document the file also has, so each becomes an
-        // update rather than a conflict, and delete only what the file no longer contains: one
-        // batch, nothing removed before its replacement is written.
+        // update rather than a conflict. Documents the file no longer contains are deleted
+        // only after every write succeeded: `bulkDocs` is not transactional, so a failed
+        // write must leave the session complete, if partly updated, rather than thinned.
         const existing = new Map((await store.sessionDocuments(sid)).map((doc) => [doc._id, doc]))
         docs = docs.map((doc) => {
           const current = existing.get(doc._id)
@@ -261,12 +263,15 @@ export async function importSessions(
         })
         const incoming = new Set(docs.map((doc) => doc._id))
         for (const doc of existing.values()) {
-          if (!incoming.has(doc._id)) docs.push({ ...doc, _deleted: true })
+          if (!incoming.has(doc._id)) leftovers.push({ ...doc, _deleted: true })
         }
       }
     }
     try {
       requireAllWritten(await store.db.bulkDocs(docs), `of session "${entry.session.name}"`)
+      if (leftovers.length > 0) {
+        requireAllWritten(await store.db.bulkDocs(leftovers), `of session "${entry.session.name}"`)
+      }
     } catch (error) {
       throw new ImportError(error instanceof Error ? error.message : String(error))
     }
