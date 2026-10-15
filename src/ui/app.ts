@@ -37,6 +37,7 @@ import './rankings-nav.js'
 import './ranking-editor.js'
 import './topics-view.js'
 import './compare-view.js'
+import './present-view.js'
 import './dialogs/text-dialog.js'
 import './dialogs/confirm-dialog.js'
 import './dialogs/ranking-dialog.js'
@@ -574,7 +575,12 @@ export class RvApp extends LitElement {
       case 'compare': {
         const wanted = new Set(this.route.rids)
         const selected = this.rankings.filter((r) => wanted.has(shortId(r._id)))
-        return html`<rv-compare-view .rankings=${selected} .topics=${topicMap}></rv-compare-view>`
+        return html`<rv-compare-view .rankings=${selected} .topics=${topicMap} .sessionName=${this.currentSession?.name ?? ''}></rv-compare-view>`
+      }
+      case 'present': {
+        const wanted = new Set(this.route.rids)
+        const selected = this.rankings.filter((r) => wanted.has(shortId(r._id)))
+        return html`<rv-present-view .rankings=${selected} .topics=${topicMap}></rv-present-view>`
       }
       case 'ranking': {
         const rid = this.route.rid
@@ -728,6 +734,25 @@ export class RvApp extends LitElement {
               )
             })}
           @rv-close=${close}></rv-delete-topic-dialog>`
+      case 'new-tier':
+        return html`<rv-text-dialog label="New tier" fieldLabel="Tier name" submitLabel="Add"
+          @rv-submit=${(e: CustomEvent<{ value: string }>) =>
+            sid &&
+            attempt(this, () => store.addTier(sid, shortId(dialog.ranking._id), e.detail.value))}
+          @rv-close=${close}></rv-text-dialog>`
+      case 'rename-tier':
+        return html`<rv-text-dialog label="Rename tier" fieldLabel="Tier name" .value=${dialog.tier.name}
+          @rv-submit=${(e: CustomEvent<{ value: string }>) =>
+            sid &&
+            attempt(this, () =>
+              store.renameTier(sid, shortId(dialog.ranking._id), dialog.tier.id, e.detail.value),
+            )}
+          @rv-close=${close}></rv-text-dialog>`
+      case 'remove-tier':
+        return html`<rv-confirm-dialog label="Remove tier" confirmLabel="Remove"
+          message=${`Remove the tier “${dialog.tier.name}”? Its topics stay ranked and join the neighbouring tier.`}
+          @rv-confirm=${() => sid && attempt(this, () => store.removeTier(sid, shortId(dialog.ranking._id), dialog.tier.id))}
+          @rv-close=${close}></rv-confirm-dialog>`
       case 'import':
         return html`<rv-import-dialog .file=${dialog.file} .clashes=${dialog.clashes}
           @rv-submit=${(e: CustomEvent<{ strategy: ClashStrategy }>) => void this.runImport(e.detail.strategy)}

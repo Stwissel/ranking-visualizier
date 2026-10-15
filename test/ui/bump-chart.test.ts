@@ -77,6 +77,26 @@ describe('<rv-bump-chart>', () => {
     expect(chart.querySelectorAll('g.point')).toHaveLength(5)
   })
 
+  it('draws a band per tier behind the lines', async () => {
+    const chart = await mount([ranking('r1', '2026-01-01', ['a', 'b', 'c'])])
+    chart.bands = [
+      { name: 'Must', from: 1, to: 1 },
+      { name: 'Later', from: 2, to: 3 },
+    ]
+    await chart.updateComplete
+    const rects = [...chart.querySelectorAll<SVGRectElement>('rect.band-fill')]
+    expect(rects).toHaveLength(2)
+    expect(Number(rects[1]!.getAttribute('height'))).toBeGreaterThan(
+      Number(rects[0]!.getAttribute('height')),
+    )
+    expect([...chart.querySelectorAll('text.band-label')].map((el) => el.textContent)).toEqual([
+      'Must',
+      'Later',
+    ])
+    // Bands come first in the SVG, so they sit behind the lines.
+    expect(chart.querySelector('svg')?.firstElementChild?.classList.contains('bands')).toBe(true)
+  })
+
   it('picks the rank-number ink by contrast ratio', () => {
     expect(inkOn('#eb6834')).toBe('#111111')
     expect(inkOn('#2a78d6')).toBe('#ffffff')

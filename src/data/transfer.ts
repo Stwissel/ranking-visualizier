@@ -143,15 +143,34 @@ export function parseExport(text: string): ExportFile {
       )
       expect(isIsoDate(ranking.date), `${at}.date is not YYYY-MM-DD`)
       expect(Array.isArray(ranking.items), `${at}.items is missing`)
+      const tiers = Array.isArray(ranking.tiers)
+        ? ranking.tiers.map((tier, tierIndex) => {
+            expect(
+              isRecord(tier) &&
+                typeof tier.id === 'string' &&
+                typeof tier.name === 'string' &&
+                tier.name.trim() !== '',
+              `${at}.tiers[${tierIndex}] is invalid`,
+            )
+            return { id: tier.id, name: tier.name }
+          })
+        : []
+      const tierIds = new Set(tiers.map((tier) => tier.id))
       const items = ranking.items.map((item, itemIndex) => {
         expect(
           isRecord(item) && typeof item.topicId === 'string',
           `${at}.items[${itemIndex}] is invalid`,
         )
         expect(topicIds.has(item.topicId), `${at}.items[${itemIndex}] names an unknown topic`)
+        expect(
+          item.tierId === undefined ||
+            (typeof item.tierId === 'string' && tierIds.has(item.tierId)),
+          `${at}.items[${itemIndex}] names an unknown tier`,
+        )
         return {
           topicId: item.topicId,
           description: typeof item.description === 'string' ? item.description : '',
+          ...(typeof item.tierId === 'string' ? { tierId: item.tierId } : {}),
         }
       })
       return {
@@ -162,6 +181,7 @@ export function parseExport(text: string): ExportFile {
         date: ranking.date,
         createdAt: typeof ranking.createdAt === 'string' ? ranking.createdAt : '',
         items,
+        ...(tiers.length > 0 ? { tiers } : {}),
       }
     })
 

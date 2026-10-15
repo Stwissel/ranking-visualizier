@@ -11,9 +11,13 @@ as JSON or synced with your own CouchDB.
   ranking, or into the first ranking the topic enters; from then on each ranking keeps its
   own copy, and a new ranking carries the previous one's text forward.
 - **Rankings** are named, dated snapshots of the topics' order. A new ranking starts as a copy
-  of the newest one; reorder by dragging the handle or with the arrow buttons.
+  of the newest one; reorder by dragging the handle or with the arrow buttons. Optional tiers
+  ("Must", "Should", "Later") divide a ranking into bands; the comparison shows a topic
+  crossing a band.
 - **Compare** two or more rankings: a bump chart draws one line per topic in its colour, and a
   table lists each rank and the change from the previous snapshot.
+  Export the chart as SVG or PNG, or the summary and table as Markdown. Present steps through
+  the rankings full screen, one at a time, with the arrow keys.
 - **Sessions** are independent sets of topics and rankings; switch between them in the header.
 - **Export and import** any session or all of them as JSON.
 - **Sync** with a CouchDB, live or on demand, configured in the app. Credentials stay in the

@@ -10,3 +10,4 @@ successor.
 | [0003](0003-sortablejs-for-drag-and-drop.md) | SortableJS for drag and drop, keyboard reorder beside it |
 | [0004](0004-d3-bump-chart.md) | D3 modules draw the bump chart |
 | [0005](0005-github-pages-hash-routing.md) | GitHub Pages deployment with hash routing |
+| [0006](0006-tiers-as-dividers.md) | Tiers as dividers in one ordered list |

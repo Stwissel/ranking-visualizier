@@ -2,7 +2,7 @@
  * Events the views send up to `<rv-app>`, which owns dialogs and notices.
  * @module
  */
-import type { RankingDoc, TopicDoc } from '../data/model.js'
+import type { RankingDoc, Tier, TopicDoc } from '../data/model.js'
 import type { ExportFile } from '../data/transfer.js'
 
 export type DialogRequest =
@@ -15,6 +15,9 @@ export type DialogRequest =
   | { kind: 'new-topic' }
   | { kind: 'edit-topic'; topic: TopicDoc }
   | { kind: 'delete-topic'; topic: TopicDoc; ranking?: RankingDoc }
+  | { kind: 'new-tier'; ranking: RankingDoc }
+  | { kind: 'rename-tier'; ranking: RankingDoc; tier: Tier }
+  | { kind: 'remove-tier'; ranking: RankingDoc; tier: Tier }
   | { kind: 'settings' }
   | { kind: 'import'; file: ExportFile; clashes: string[] }
 

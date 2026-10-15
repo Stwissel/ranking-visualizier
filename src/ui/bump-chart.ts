@@ -86,10 +86,20 @@ export function inkOn(hex: string): string {
     : INK_LIGHT
 }
 
+/** A horizontal band behind the lines, covering ranks `from` to `to` inclusive. */
+export interface Band {
+  name: string
+  from: number
+  to: number
+}
+
 export class RvBumpChart extends LitElement {
   static override properties = {
     rankings: { attribute: false },
     topics: { attribute: false },
+    bands: { attribute: false },
+    frame: { attribute: false },
+    size: { type: String, reflect: true },
     highlighted: { state: true },
     hover: { state: true },
     width: { state: true },
@@ -98,6 +108,19 @@ export class RvBumpChart extends LitElement {
   /** The rankings to show, in any order; the chart sorts them chronologically. */
   rankings: RankingDoc[] = []
   topics: ReadonlyMap<string, TopicDoc> = new Map()
+  /** Tier bands of the latest ranking, drawn behind everything. */
+  bands: Band[] = []
+  /**
+   * Fixes the column and row count independently of the rankings shown, so a presentation
+   * that reveals rankings one at a time keeps every column where it will end up.
+   */
+  frame: { columns: number; rows: number } | undefined
+  /** `large` for a presentation: taller rows, bigger type. */
+  size: 'medium' | 'large' = 'medium'
+
+  private get rowHeight(): number {
+    return this.size === 'large' ? 56 : ROW_HEIGHT
+  }
   /** Topic id highlighted by hover or keyboard focus. */
   highlighted: string | undefined
   /** The hovered point, for the detail panel. */
@@ -173,11 +196,21 @@ export class RvBumpChart extends LitElement {
   }
 
   private get maxRank(): number {
-    return Math.max(1, ...this.rankings.map((ranking) => ranking.items.length))
+    return Math.max(
+      1,
+      this.frame?.rows ?? 0,
+      ...this.rankings.map((ranking) => ranking.items.length),
+    )
+  }
+
+  /** Column indices of the x scale: the rankings shown, or the frame when it is wider. */
+  private get columns(): number[] {
+    const count = Math.max(this.rankings.length, this.frame?.columns ?? 0)
+    return Array.from({ length: count }, (_, index) => index)
   }
 
   private get height(): number {
-    return Math.max(MIN_HEIGHT, MARGIN.top + MARGIN.bottom + this.maxRank * ROW_HEIGHT)
+    return Math.max(MIN_HEIGHT, MARGIN.top + MARGIN.bottom + this.maxRank * this.rowHeight)
   }
 
   protected override updated(): void {
@@ -193,12 +226,12 @@ export class RvBumpChart extends LitElement {
     const height = this.height
     const rightMargin = width < 520 ? 24 : MARGIN.right
     const x = scalePoint<number>()
-      .domain(ordered.map((_, index) => index))
+      .domain(this.columns)
       .range([MARGIN.left, width - rightMargin])
       .padding(0.3)
     const y = scaleLinear()
       .domain([1, this.maxRank])
-      .range([MARGIN.top + ROW_HEIGHT / 2, height - MARGIN.bottom - ROW_HEIGHT / 2])
+      .range([MARGIN.top + this.rowHeight / 2, height - MARGIN.bottom - this.rowHeight / 2])
     const path = line<Point>()
       .defined(isRanked)
       .x((point) => x(point.rankingIndex) ?? 0)
@@ -206,6 +239,38 @@ export class RvBumpChart extends LitElement {
       .curve(curveMonotoneX)
 
     const root = select(svg).attr('viewBox', `0 0 ${width} ${height}`).attr('height', height)
+
+    // Tier bands, behind everything; alternate opacity tells neighbours apart without strokes.
+    const bands = root
+      .select<SVGGElement>('g.bands')
+      .selectAll<SVGGElement, Band>('g.band')
+      .data(this.bands, (band) => band.name)
+      .join((enter) => {
+        const band = enter.append('g').attr('class', 'band')
+        band.append('rect').attr('class', 'band-fill')
+        band.append('text').attr('class', 'band-label')
+        return band
+      })
+      .attr('data-alternate', (_, i) => (i % 2 === 1 ? '' : null))
+    bands
+      .select<SVGRectElement>('rect.band-fill')
+      .attr('x', MARGIN.left - 8)
+      .attr('width', Math.max(0, width - rightMargin - MARGIN.left + 16))
+      .attr('y', (band) => y(band.from) - this.rowHeight / 2)
+      .attr('height', (band) => y(band.to) - y(band.from) + this.rowHeight)
+      .attr('rx', 6)
+    bands
+      .select<SVGTextElement>('text.band-label')
+      .attr('x', width - rightMargin + 8)
+      .attr('y', (band) => y(band.from) - this.rowHeight / 2 + 12)
+      .attr('text-anchor', 'start')
+      .text((band) => (rightMargin > 24 ? '' : band.name))
+    bands
+      .select<SVGTextElement>('text.band-label')
+      .filter(() => rightMargin > 24)
+      .attr('x', MARGIN.left - 4)
+      .attr('text-anchor', 'start')
+      .text((band) => band.name)
 
     // Rank gridlines and labels.
     const ranks = Array.from({ length: this.maxRank }, (_, index) => index + 1)
@@ -288,6 +353,7 @@ export class RvBumpChart extends LitElement {
         const group = enter
           .append('g')
           .attr('class', 'topic')
+          .attr('data-topic-id', (entry) => entry.topicId)
           .attr('tabindex', 0)
           .attr('role', 'img')
         group.append('title')
@@ -388,7 +454,8 @@ export class RvBumpChart extends LitElement {
       ? focused?.points.filter(isRanked).find((p) => p.rankingIndex === hovered.rankingIndex)
       : undefined
     return html`
-      <svg class="rv-chart" role="group" aria-label="Bump chart of ranks across the selected rankings" height=${this.height}>
+      <svg class="rv-chart" size=${this.size} role="group" aria-label="Bump chart of ranks across the selected rankings" height=${this.height}>
+        <g class="bands"></g>
         <g class="grid"></g>
         <g class="rank-axis"></g>
         <g class="axis"></g>

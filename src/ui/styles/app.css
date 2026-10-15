@@ -7,6 +7,7 @@ rv-rankings-nav,
 rv-ranking-editor,
 rv-topics-view,
 rv-compare-view,
+rv-present-view,
 rv-bump-chart {
   display: block;
 }
@@ -238,6 +239,47 @@ wa-page[view="mobile"] .rv-rank-actions {
   flex-direction: row;
 }
 
+/* Change summary and trend tags -------------------------------------------------------- */
+
+.rv-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rv-trend {
+  vertical-align: middle;
+}
+
+.rv-rank-title .rv-trend,
+.rv-topic-title .rv-trend {
+  font-weight: var(--wa-font-weight-normal);
+}
+
+/* Tier dividers in the ranking list --------------------------------------------------- */
+
+.rv-tier {
+  padding: var(--wa-space-xs) var(--wa-space-s) var(--wa-space-2xs);
+  border-block-end: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
+}
+
+.rv-tier:not(:first-child) {
+  margin-block-start: var(--wa-space-m);
+}
+
+.rv-tier-name {
+  margin: 0;
+  font-size: var(--wa-font-size-s);
+  font-weight: var(--wa-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--wa-color-text-quiet);
+}
+
+.rv-tier-cell {
+  text-align: end;
+}
+
 /* Topics ----------------------------------------------------------------------------- */
 
 .rv-topic-grid {
@@ -314,6 +356,24 @@ wa-page[view="mobile"] .rv-rank-actions {
   fill: var(--wa-color-text-quiet);
 }
 
+/* Tier bands: a wash behind the lines, every second one a touch stronger. */
+.rv-chart .band-fill {
+  fill: var(--wa-color-neutral-fill-quiet);
+  opacity: 0.35;
+}
+
+.rv-chart .band[data-alternate] .band-fill {
+  opacity: 0.7;
+}
+
+.rv-chart .band-label {
+  fill: var(--wa-color-text-quiet);
+  font-size: var(--wa-font-size-xs);
+  font-weight: var(--wa-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .rv-chart .axis line,
 .rv-chart .grid line {
   stroke: var(--wa-color-surface-border);
@@ -333,8 +393,8 @@ wa-page[view="mobile"] .rv-rank-actions {
   transition: opacity var(--wa-transition-normal);
 }
 
+/* No fill here: the chart sets it per point, black or white by contrast with the colour. */
 .rv-chart .topic-rank {
-  fill: var(--wa-color-text-normal);
   font-size: var(--wa-font-size-xs);
   font-weight: var(--wa-font-weight-semibold);
   pointer-events: none;
@@ -354,12 +414,53 @@ wa-page[view="mobile"] .rv-rank-actions {
   opacity: 0.18;
 }
 
+.rv-chart[size="large"] .topic-line {
+  stroke-width: 4;
+}
+
 .rv-chart .topic:focus-visible .topic-line {
   stroke-width: 5;
 }
 
 .rv-chart-detail {
   min-block-size: 3.5em;
+}
+
+/* Off screen while a chart clone is measured for export; never visible. */
+.rv-chart-export-stage {
+  position: fixed;
+  inset-inline-start: -200vw;
+  inset-block-start: 0;
+  inline-size: 60rem;
+  visibility: hidden;
+}
+
+/* Presentation ---------------------------------------------------------------------- */
+
+rv-present-view {
+  outline: none;
+}
+
+/* Over everything, including the sticky header, on the page surface. */
+.rv-present {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: auto;
+  padding: var(--wa-space-xl) var(--wa-space-2xl);
+  background: var(--wa-color-surface-default);
+}
+
+.rv-chart[size="large"] {
+  font-size: var(--wa-font-size-m);
+}
+
+.rv-chart[size="large"] .topic-rank {
+  font-size: var(--wa-font-size-s);
+}
+
+.rv-chart[size="large"] .topic-label {
+  font-size: var(--wa-font-size-l);
 }
 
 /* Sync badge ------------------------------------------------------------------------- */

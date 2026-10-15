@@ -40,6 +40,18 @@ export interface TopicDoc {
 export interface RankingItem {
   topicId: TopicId
   description: string
+  /** The tier this item sits in. Set on every item when the ranking has tiers, else absent. */
+  tierId?: string
+}
+
+/**
+ * A band inside a ranking ("Must", "Should", "Later"). Tiers are dividers in the one ordered
+ * list: items of a tier are contiguous and follow the order of `RankingDoc.tiers`, so the rank
+ * and the tier can never disagree.
+ */
+export interface Tier {
+  id: string
+  name: string
 }
 
 export interface RankingDoc {
@@ -52,6 +64,15 @@ export interface RankingDoc {
   date: string
   createdAt: string
   items: RankingItem[]
+  /** Top to bottom. Absent or empty when the ranking has no tiers. */
+  tiers?: Tier[]
+}
+
+/** The tier an item belongs to, by name, for comparing across rankings whose ids differ. */
+export function tierNameOf(ranking: RankingDoc, topicId: TopicId): string | undefined {
+  const item = ranking.items.find((candidate) => candidate.topicId === topicId)
+  if (!item?.tierId) return undefined
+  return ranking.tiers?.find((tier) => tier.id === item.tierId)?.name
 }
 
 export type AnyDoc = SessionDoc | TopicDoc | RankingDoc
