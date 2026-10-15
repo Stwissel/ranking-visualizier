@@ -19,12 +19,29 @@ export class RvCompareView extends LitElement {
     rankings: { attribute: false },
     topics: { attribute: false },
     sessionName: { type: String },
+    selected: { state: true },
   }
 
   rankings: RankingDoc[] = []
   topics: ReadonlyMap<string, TopicDoc> = new Map()
   /** For the file names and the Markdown heading. */
   sessionName = ''
+  /** The topic pinned in the chart and the table, by a click on either. */
+  selected: string | undefined
+
+  private select(topicId: string | undefined): void {
+    this.selected = this.selected === topicId ? undefined : topicId
+  }
+
+  private onSelectTopic = (event: CustomEvent<{ topicId: string | undefined }>): void => {
+    this.selected = event.detail.topicId
+    if (!this.selected) return
+    void this.updateComplete.then(() => {
+      this.querySelector(`tr[data-topic-id="${CSS.escape(this.selected ?? '')}"]`)?.scrollIntoView({
+        block: 'nearest',
+      })
+    })
+  }
 
   private get ordered(): RankingDoc[] {
     return [...this.rankings].sort(compareRankings)
@@ -121,7 +138,13 @@ export class RvCompareView extends LitElement {
         </div>
       </header>
       <wa-card>
-        <rv-bump-chart .rankings=${ordered} .topics=${this.topics} .bands=${bandsOf(last)}></rv-bump-chart>
+        <rv-bump-chart
+          .rankings=${ordered}
+          .topics=${this.topics}
+          .bands=${bandsOf(last)}
+          .selected=${this.selected}
+          @rv-select-topic=${this.onSelectTopic}
+        ></rv-bump-chart>
       </wa-card>
       <section class="wa-stack wa-gap-s">
         <h2 class="wa-heading-s">Ranks and changes</h2>
@@ -141,11 +164,20 @@ export class RvCompareView extends LitElement {
       </thead>
       <tbody>
         ${rows.map(
-          (row) => html`<tr>
+          (
+            row,
+          ) => html`<tr data-topic-id=${row.topicId} ?data-selected=${row.topicId === this.selected}>
             <th scope="row">
-              <span class="wa-cluster wa-gap-xs" id=${`rv-row-${row.topicId}`}>
-                <span class="rv-swatch" style=${styleMap({ '--rv-colour': row.colour ?? '' })}></span>${row.title}
-              </span>
+              <wa-button
+                class="rv-row-pick"
+                appearance="plain"
+                size="s"
+                id=${`rv-row-${row.topicId}`}
+                aria-pressed=${row.topicId === this.selected ? 'true' : 'false'}
+                @click=${() => this.select(row.topicId)}
+              >
+                <span slot="start" class="rv-swatch" style=${styleMap({ '--rv-colour': row.colour ?? '' })}></span>${row.title}
+              </wa-button>
               <wa-tooltip for=${`rv-row-${row.topicId}`} placement="right">${describeStats(statsOf(row.topicId, ordered))}</wa-tooltip>
             </th>
             ${row.ranks.map((rank, index) =>

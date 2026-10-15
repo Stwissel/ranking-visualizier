@@ -325,6 +325,25 @@ wa-page[view="mobile"] .rv-rank-actions {
   font-size: var(--wa-font-size-s);
 }
 
+/* Ranking columns are numeric: their headings sit over the numbers, flush right. */
+.rv-compare-table th[scope="col"]:not(:first-child) {
+  text-align: end;
+}
+
+/* The topic name is a plain button that pins the topic in chart and table alike. */
+.rv-row-pick::part(base) {
+  padding-inline: 0;
+  color: var(--wa-color-text-normal);
+}
+
+.rv-compare-table tr[data-selected] {
+  background: var(--wa-color-brand-fill-quiet);
+}
+
+.rv-compare-table tr[data-selected] .rv-row-pick::part(base) {
+  font-weight: var(--wa-font-weight-semibold);
+}
+
 .rv-compare-table td.rv-rank-cell {
   text-align: end;
   white-space: nowrap;
@@ -418,7 +437,8 @@ wa-page[view="mobile"] .rv-rank-actions {
   stroke-width: 4;
 }
 
-.rv-chart .topic:focus-visible .topic-line {
+.rv-chart .topic:focus-visible .topic-line,
+.rv-chart .topic[data-selected] .topic-line {
   stroke-width: 5;
 }
 

@@ -15,7 +15,8 @@ as JSON or synced with your own CouchDB.
   ("Must", "Should", "Later") divide a ranking into bands; the comparison shows a topic
   crossing a band.
 - **Compare** two or more rankings: a bump chart draws one line per topic in its colour, and a
-  table lists each rank and the change from the previous snapshot.
+  table lists each rank and the change from the previous snapshot. Click a line, a dot or a
+  topic in the table to pin that topic in both; click again, or the chart background, to let go.
   Export the chart as SVG or PNG, or the summary and table as Markdown. Present steps through
   the rankings full screen, one at a time, with the arrow keys.
 - **Sessions** are independent sets of topics and rankings; switch between them in the header.
