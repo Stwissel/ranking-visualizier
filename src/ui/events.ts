@@ -18,6 +18,18 @@ export type DialogRequest =
   | { kind: 'settings' }
   | { kind: 'import'; file: ExportFile; clashes: string[] }
 
+/** An action just done that can be put back, offered to the user for a few seconds. */
+export interface UndoOffer {
+  message: string
+  undo: () => Promise<void>
+}
+
+export function offerUndo(target: EventTarget, offer: UndoOffer): void {
+  target.dispatchEvent(
+    new CustomEvent<UndoOffer>('rv-undo', { detail: offer, bubbles: true, composed: true }),
+  )
+}
+
 export interface Notice {
   variant: 'success' | 'danger' | 'warning' | 'brand'
   message: string

@@ -19,6 +19,8 @@ as JSON or synced with your own CouchDB.
 - **Sync** with a CouchDB, live or on demand, configured in the app. Credentials stay in the
   browser and never replicate.
 - **Appearance**: light, dark, or follow the system, from the header menu.
+- **Quick entry and undo**: add several topics at once (one per line, `Title | description`),
+  and undo a reorder, a removal or a deletion from the toast or with Ctrl/Cmd+Z.
 
 Removing a topic offers two choices: out of this ranking and every later one (earlier
 rankings and the chart keep its history), or deleted completely.

@@ -8,7 +8,7 @@ import { styleMap } from 'lit/directives/style-map.js'
 import Sortable from 'sortablejs'
 import { type RankingDoc, shortId, type TopicDoc } from '../data/model.js'
 import type { Store } from '../data/store.js'
-import { attempt, requestDialog } from './events.js'
+import { attempt, offerUndo, requestDialog } from './events.js'
 import { formatDate } from './format.js'
 
 export class RvRankingEditor extends LitElement {
@@ -98,9 +98,12 @@ export class RvRankingEditor extends LitElement {
     ids.splice(to, 0, moved)
     const title = this.topicOf(moved)?.title ?? 'Topic'
     const store = this.store
-    const ok = await attempt(this, () =>
-      store.reorderRanking(this.sid, shortId(this.ranking._id), ids),
-    )
+    const ok = await attempt(this, async () => {
+      const { undo } = await store.undoable(this.sid, () =>
+        store.reorderRanking(this.sid, shortId(this.ranking._id), ids),
+      )
+      offerUndo(this, { message: `Moved ${title} to #${to + 1}`, undo })
+    })
     if (ok) this.announcement = `Moved ${title} to position ${to + 1} of ${ids.length}.`
     else this.pending = false
   }
