@@ -350,8 +350,8 @@ wa-page[view="mobile"] .rv-rank-actions {
   transition: opacity var(--wa-transition-normal);
 }
 
+/* No fill here: the chart sets it per point, black or white by contrast with the colour. */
 .rv-chart .topic-rank {
-  fill: var(--wa-color-text-normal);
   font-size: var(--wa-font-size-xs);
   font-weight: var(--wa-font-weight-semibold);
   pointer-events: none;
