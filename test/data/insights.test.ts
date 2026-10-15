@@ -147,5 +147,21 @@ describe('compareRows', () => {
       ['Unknown topic', [3, undefined]],
     ])
     expect(rows[2]?.colour).toBeUndefined()
+    expect(rows[0]?.tiers).toEqual([undefined, undefined])
+  })
+
+  it('carries the tier name per ranking', () => {
+    const r1 = ranking('r1', '2026-01-01', ['a', 'b'])
+    r1.tiers = [
+      { id: 't1', name: 'Must' },
+      { id: 't2', name: 'Later' },
+    ]
+    r1.items[0]!.tierId = 't1'
+    r1.items[1]!.tierId = 't2'
+    const rows = compareRows([r1, ranking('r2', '2026-02-01', ['b', 'a'])], new Map())
+    expect(rows.map((row) => row.tiers)).toEqual([
+      ['Later', undefined],
+      ['Must', undefined],
+    ])
   })
 })

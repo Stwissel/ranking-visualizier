@@ -51,9 +51,11 @@ export function compareToMarkdown(
     const cells = row.ranks.map((rank, index) => {
       if (rank === undefined) return '—'
       const previous = index === 0 ? undefined : row.ranks[index - 1]
-      if (previous === undefined || previous === rank) return String(rank)
+      const tier = row.tiers[index]
+      const suffix = tier ? ` · ${cell(tier)}` : ''
+      if (previous === undefined || previous === rank) return `${rank}${suffix}`
       const delta = previous - rank
-      return `${rank} (${delta > 0 ? '↑' : '↓'}${Math.abs(delta)})`
+      return `${rank} (${delta > 0 ? '↑' : '↓'}${Math.abs(delta)})${suffix}`
     })
     lines.push(`| ${cell(row.title)} | ${cells.join(' | ')} |`)
   }

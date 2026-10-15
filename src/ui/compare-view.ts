@@ -7,6 +7,7 @@ import { styleMap } from 'lit/directives/style-map.js'
 import { compareRows, describeStats, statsOf } from '../data/insights.js'
 import { compareToMarkdown } from '../data/markdown.js'
 import { compareRankings, type RankingDoc, type TopicDoc, today } from '../data/model.js'
+import type { Band } from './bump-chart.js'
 import { rasterise, serialiseChart } from './chart-export.js'
 import { attempt, notify } from './events.js'
 import { downloadBlob, downloadText, exportFileName, formatDate } from './format.js'
@@ -114,7 +115,7 @@ export class RvCompareView extends LitElement {
         </wa-dropdown>
       </header>
       <wa-card>
-        <rv-bump-chart .rankings=${ordered} .topics=${this.topics}></rv-bump-chart>
+        <rv-bump-chart .rankings=${ordered} .topics=${this.topics} .bands=${bandsOf(last)}></rv-bump-chart>
       </wa-card>
       <section class="wa-stack wa-gap-s">
         <h2 class="wa-heading-s">Ranks and changes</h2>
@@ -141,16 +142,38 @@ export class RvCompareView extends LitElement {
               </span>
               <wa-tooltip for=${`rv-row-${row.topicId}`} placement="right">${describeStats(statsOf(row.topicId, ordered))}</wa-tooltip>
             </th>
-            ${row.ranks.map((rank, index) => this.renderCell(rank, index === 0 ? undefined : row.ranks[index - 1]))}
+            ${row.ranks.map((rank, index) =>
+              this.renderCell(
+                rank,
+                index === 0 ? undefined : row.ranks[index - 1],
+                row.tiers[index],
+                index === 0 ? undefined : row.tiers[index - 1],
+              ),
+            )}
           </tr>`,
         )}
       </tbody>
     </table>`
   }
 
-  private renderCell(rank: number | undefined, previous: number | undefined) {
+  private renderCell(
+    rank: number | undefined,
+    previous: number | undefined,
+    tier: string | undefined,
+    previousTier: string | undefined,
+  ) {
     if (rank === undefined) return html`<td class="rv-rank-cell rv-quiet">—</td>`
-    if (previous === undefined) return html`<td class="rv-rank-cell">${rank}</td>`
+    const tierLine = tier
+      ? html`<div class="rv-tier-cell wa-caption-s rv-quiet">
+          ${tier}
+          ${
+            previousTier !== undefined && previousTier.toLowerCase() !== tier.toLowerCase()
+              ? html`<wa-icon name="arrow-right-arrow-left" label=${`tier changed from ${previousTier}`}></wa-icon>`
+              : nothing
+          }
+        </div>`
+      : nothing
+    if (previous === undefined) return html`<td class="rv-rank-cell">${rank}${tierLine}</td>`
     const delta = previous - rank
     const cls = delta > 0 ? 'rv-delta-up' : delta < 0 ? 'rv-delta-down' : 'rv-delta-same'
     const icon = delta > 0 ? 'arrow-up' : delta < 0 ? 'arrow-down' : 'minus'
@@ -158,12 +181,25 @@ export class RvCompareView extends LitElement {
     return html`<td class="rv-rank-cell">
       ${rank}
       <span class=${cls}><wa-icon name=${icon} label=${label}></wa-icon>${delta === 0 ? nothing : Math.abs(delta)}</span>
+      ${tierLine}
     </td>`
   }
 
   private rows(ordered: RankingDoc[]) {
     return compareRows(ordered, this.topics)
   }
+}
+
+/** The rank range of each tier in a ranking, for the chart's bands. Empty tiers draw nothing. */
+export function bandsOf(ranking: RankingDoc): Band[] {
+  if (!ranking.tiers?.length) return []
+  return ranking.tiers.flatMap((tier) => {
+    const ranks = ranking.items
+      .map((item, index) => (item.tierId === tier.id ? index + 1 : undefined))
+      .filter((rank): rank is number => rank !== undefined)
+    if (ranks.length === 0) return []
+    return [{ name: tier.name, from: Math.min(...ranks), to: Math.max(...ranks) }]
+  })
 }
 
 customElements.define('rv-compare-view', RvCompareView)

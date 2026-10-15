@@ -86,10 +86,18 @@ export function inkOn(hex: string): string {
     : INK_LIGHT
 }
 
+/** A horizontal band behind the lines, covering ranks `from` to `to` inclusive. */
+export interface Band {
+  name: string
+  from: number
+  to: number
+}
+
 export class RvBumpChart extends LitElement {
   static override properties = {
     rankings: { attribute: false },
     topics: { attribute: false },
+    bands: { attribute: false },
     highlighted: { state: true },
     hover: { state: true },
     width: { state: true },
@@ -98,6 +106,8 @@ export class RvBumpChart extends LitElement {
   /** The rankings to show, in any order; the chart sorts them chronologically. */
   rankings: RankingDoc[] = []
   topics: ReadonlyMap<string, TopicDoc> = new Map()
+  /** Tier bands of the latest ranking, drawn behind everything. */
+  bands: Band[] = []
   /** Topic id highlighted by hover or keyboard focus. */
   highlighted: string | undefined
   /** The hovered point, for the detail panel. */
@@ -206,6 +216,38 @@ export class RvBumpChart extends LitElement {
       .curve(curveMonotoneX)
 
     const root = select(svg).attr('viewBox', `0 0 ${width} ${height}`).attr('height', height)
+
+    // Tier bands, behind everything; alternate opacity tells neighbours apart without strokes.
+    const bands = root
+      .select<SVGGElement>('g.bands')
+      .selectAll<SVGGElement, Band>('g.band')
+      .data(this.bands, (band) => band.name)
+      .join((enter) => {
+        const band = enter.append('g').attr('class', 'band')
+        band.append('rect').attr('class', 'band-fill')
+        band.append('text').attr('class', 'band-label')
+        return band
+      })
+      .attr('data-alternate', (_, i) => (i % 2 === 1 ? '' : null))
+    bands
+      .select<SVGRectElement>('rect.band-fill')
+      .attr('x', MARGIN.left - 8)
+      .attr('width', Math.max(0, width - rightMargin - MARGIN.left + 16))
+      .attr('y', (band) => y(band.from) - ROW_HEIGHT / 2)
+      .attr('height', (band) => y(band.to) - y(band.from) + ROW_HEIGHT)
+      .attr('rx', 6)
+    bands
+      .select<SVGTextElement>('text.band-label')
+      .attr('x', width - rightMargin + 8)
+      .attr('y', (band) => y(band.from) - ROW_HEIGHT / 2 + 12)
+      .attr('text-anchor', 'start')
+      .text((band) => (rightMargin > 24 ? '' : band.name))
+    bands
+      .select<SVGTextElement>('text.band-label')
+      .filter(() => rightMargin > 24)
+      .attr('x', MARGIN.left - 4)
+      .attr('text-anchor', 'start')
+      .text((band) => band.name)
 
     // Rank gridlines and labels.
     const ranks = Array.from({ length: this.maxRank }, (_, index) => index + 1)
@@ -389,6 +431,7 @@ export class RvBumpChart extends LitElement {
       : undefined
     return html`
       <svg class="rv-chart" role="group" aria-label="Bump chart of ranks across the selected rankings" height=${this.height}>
+        <g class="bands"></g>
         <g class="grid"></g>
         <g class="rank-axis"></g>
         <g class="axis"></g>

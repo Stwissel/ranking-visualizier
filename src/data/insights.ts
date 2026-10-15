@@ -7,7 +7,7 @@
  *
  * @module
  */
-import type { RankingDoc, TopicDoc } from './model.js'
+import { type RankingDoc, type TopicDoc, tierNameOf } from './model.js'
 
 export type ChangeKind = 'up' | 'down' | 'same' | 'new' | 'gone'
 
@@ -159,6 +159,8 @@ export interface CompareRow {
   colour: string | undefined
   /** One entry per ranking, undefined where the topic is absent. */
   ranks: (number | undefined)[]
+  /** The tier's name per ranking, undefined where absent or the ranking has no tiers. */
+  tiers: (string | undefined)[]
 }
 
 /**
@@ -177,7 +179,8 @@ export function compareRows(
       const index = ranking.items.findIndex((item) => item.topicId === topicId)
       return index === -1 ? undefined : index + 1
     })
-    return { topicId, title: topic?.title ?? 'Unknown topic', colour: topic?.colour, ranks }
+    const tiers = ordered.map((ranking) => tierNameOf(ranking, topicId))
+    return { topicId, title: topic?.title ?? 'Unknown topic', colour: topic?.colour, ranks, tiers }
   })
   return rows.sort((a, b) => {
     const lastA = a.ranks[a.ranks.length - 1] ?? Number.POSITIVE_INFINITY

@@ -255,6 +255,30 @@ wa-page[view="mobile"] .rv-rank-actions {
   font-weight: var(--wa-font-weight-normal);
 }
 
+/* Tier dividers in the ranking list --------------------------------------------------- */
+
+.rv-tier {
+  padding: var(--wa-space-xs) var(--wa-space-s) var(--wa-space-2xs);
+  border-block-end: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
+}
+
+.rv-tier:not(:first-child) {
+  margin-block-start: var(--wa-space-m);
+}
+
+.rv-tier-name {
+  margin: 0;
+  font-size: var(--wa-font-size-s);
+  font-weight: var(--wa-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--wa-color-text-quiet);
+}
+
+.rv-tier-cell {
+  text-align: end;
+}
+
 /* Topics ----------------------------------------------------------------------------- */
 
 .rv-topic-grid {
@@ -329,6 +353,24 @@ wa-page[view="mobile"] .rv-rank-actions {
 .rv-chart .axis text,
 .rv-chart .rank-axis text {
   fill: var(--wa-color-text-quiet);
+}
+
+/* Tier bands: a wash behind the lines, every second one a touch stronger. */
+.rv-chart .band-fill {
+  fill: var(--wa-color-neutral-fill-quiet);
+  opacity: 0.35;
+}
+
+.rv-chart .band[data-alternate] .band-fill {
+  opacity: 0.7;
+}
+
+.rv-chart .band-label {
+  fill: var(--wa-color-text-quiet);
+  font-size: var(--wa-font-size-xs);
+  font-weight: var(--wa-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .rv-chart .axis line,
