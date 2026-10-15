@@ -6,11 +6,12 @@ import { html, LitElement, nothing } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
 import { compareRows, describeStats, statsOf } from '../data/insights.js'
 import { compareToMarkdown } from '../data/markdown.js'
-import { compareRankings, type RankingDoc, type TopicDoc, today } from '../data/model.js'
+import { compareRankings, type RankingDoc, shortId, type TopicDoc, today } from '../data/model.js'
 import type { Band } from './bump-chart.js'
 import { rasterise, serialiseChart } from './chart-export.js'
 import { attempt, notify } from './events.js'
 import { downloadBlob, downloadText, exportFileName, formatDate } from './format.js'
+import { navigate } from './router.js'
 import './bump-chart.js'
 
 export class RvCompareView extends LitElement {
@@ -105,6 +106,10 @@ export class RvCompareView extends LitElement {
           <h1 class="wa-heading-l rv-page-title">Compare ${ordered.length} rankings</h1>
           <p class="rv-page-subtitle">${formatDate(first.date)} to ${formatDate(last.date)}. Each line is a topic; up means a higher priority.</p>
         </div>
+        <div class="wa-cluster wa-gap-xs">
+        <wa-button size="s" variant="brand" @click=${() => navigate({ view: 'present', rids: ordered.map((r) => shortId(r._id)) })}>
+          <wa-icon slot="start" name="play"></wa-icon>Present
+        </wa-button>
         <wa-dropdown placement="bottom-end" @wa-select=${this.onExport}>
           <wa-button slot="trigger" size="s" appearance="outlined" with-caret>
             <wa-icon slot="start" name="download"></wa-icon>Export
@@ -113,6 +118,7 @@ export class RvCompareView extends LitElement {
           <wa-dropdown-item value="png"><wa-icon slot="icon" name="chart-line"></wa-icon>Chart as PNG (2x)</wa-dropdown-item>
           <wa-dropdown-item value="markdown"><wa-icon slot="icon" name="list-ol"></wa-icon>Summary and table as Markdown</wa-dropdown-item>
         </wa-dropdown>
+        </div>
       </header>
       <wa-card>
         <rv-bump-chart .rankings=${ordered} .topics=${this.topics} .bands=${bandsOf(last)}></rv-bump-chart>

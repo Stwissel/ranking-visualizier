@@ -36,6 +36,7 @@ import './rankings-nav.js'
 import './ranking-editor.js'
 import './topics-view.js'
 import './compare-view.js'
+import './present-view.js'
 import './dialogs/text-dialog.js'
 import './dialogs/confirm-dialog.js'
 import './dialogs/ranking-dialog.js'
@@ -501,6 +502,11 @@ export class RvApp extends LitElement {
         const wanted = new Set(this.route.rids)
         const selected = this.rankings.filter((r) => wanted.has(shortId(r._id)))
         return html`<rv-compare-view .rankings=${selected} .topics=${topicMap} .sessionName=${this.currentSession?.name ?? ''}></rv-compare-view>`
+      }
+      case 'present': {
+        const wanted = new Set(this.route.rids)
+        const selected = this.rankings.filter((r) => wanted.has(shortId(r._id)))
+        return html`<rv-present-view .rankings=${selected} .topics=${topicMap}></rv-present-view>`
       }
       case 'ranking': {
         const rid = this.route.rid

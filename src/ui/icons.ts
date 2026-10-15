@@ -9,6 +9,8 @@
 
 import { registerIconLibrary } from '@awesome.me/webawesome/dist/webawesome.js'
 import arrowDown from '@fortawesome/fontawesome-free/svgs/solid/arrow-down.svg?url'
+import arrowLeft from '@fortawesome/fontawesome-free/svgs/solid/arrow-left.svg?url'
+import arrowRight from '@fortawesome/fontawesome-free/svgs/solid/arrow-right.svg?url'
 import arrowRightArrowLeft from '@fortawesome/fontawesome-free/svgs/solid/arrow-right-arrow-left.svg?url'
 import arrowUp from '@fortawesome/fontawesome-free/svgs/solid/arrow-up.svg?url'
 import bars from '@fortawesome/fontawesome-free/svgs/solid/bars.svg?url'
@@ -27,6 +29,7 @@ import listOl from '@fortawesome/fontawesome-free/svgs/solid/list-ol.svg?url'
 import minus from '@fortawesome/fontawesome-free/svgs/solid/minus.svg?url'
 import moon from '@fortawesome/fontawesome-free/svgs/solid/moon.svg?url'
 import pen from '@fortawesome/fontawesome-free/svgs/solid/pen.svg?url'
+import play from '@fortawesome/fontawesome-free/svgs/solid/play.svg?url'
 import plus from '@fortawesome/fontawesome-free/svgs/solid/plus.svg?url'
 import rotate from '@fortawesome/fontawesome-free/svgs/solid/rotate.svg?url'
 import sun from '@fortawesome/fontawesome-free/svgs/solid/sun.svg?url'
@@ -39,6 +42,8 @@ import xmark from '@fortawesome/fontawesome-free/svgs/solid/xmark.svg?url'
 export const ICONS: Readonly<Record<string, string>> = {
   'arrow-down': arrowDown,
   'arrow-right-arrow-left': arrowRightArrowLeft,
+  'arrow-left': arrowLeft,
+  'arrow-right': arrowRight,
   'arrow-up': arrowUp,
   bars,
   'chart-line': chartLine,
@@ -56,6 +61,7 @@ export const ICONS: Readonly<Record<string, string>> = {
   minus,
   moon,
   pen,
+  play,
   plus,
   rotate,
   sun,
