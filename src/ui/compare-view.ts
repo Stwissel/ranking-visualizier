@@ -5,25 +5,90 @@
 import { html, LitElement, nothing } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
 import { compareRows, describeStats, statsOf } from '../data/insights.js'
-import { compareRankings, type RankingDoc, type TopicDoc } from '../data/model.js'
-import { formatDate } from './format.js'
+import { compareToMarkdown } from '../data/markdown.js'
+import { compareRankings, type RankingDoc, type TopicDoc, today } from '../data/model.js'
+import { rasterise, serialiseChart } from './chart-export.js'
+import { attempt, notify } from './events.js'
+import { downloadBlob, downloadText, exportFileName, formatDate } from './format.js'
 import './bump-chart.js'
 
 export class RvCompareView extends LitElement {
   static override properties = {
     rankings: { attribute: false },
     topics: { attribute: false },
+    sessionName: { type: String },
   }
 
   rankings: RankingDoc[] = []
   topics: ReadonlyMap<string, TopicDoc> = new Map()
+  /** For the file names and the Markdown heading. */
+  sessionName = ''
+
+  private get ordered(): RankingDoc[] {
+    return [...this.rankings].sort(compareRankings)
+  }
+
+  private fileName(extension: string): string {
+    return exportFileName(today(), `${this.sessionName} compare`).replace(
+      /\.json$/,
+      `.${extension}`,
+    )
+  }
+
+  private onExport = (event: CustomEvent<{ item: { value: string } }>): void => {
+    const kind = event.detail.item.value
+    if (kind === 'svg') void this.exportSvg()
+    else if (kind === 'png') void this.exportPng()
+    else if (kind === 'markdown') void this.exportMarkdown()
+  }
+
+  private chartSvg(): SVGSVGElement {
+    const svg = this.querySelector<SVGSVGElement>('rv-bump-chart svg.rv-chart')
+    if (!svg) throw new Error('The chart has not been drawn yet')
+    return svg
+  }
+
+  private async exportSvg(): Promise<void> {
+    await attempt(this, async () => {
+      downloadText(this.fileName('svg'), serialiseChart(this.chartSvg()), 'image/svg+xml')
+    })
+  }
+
+  private async exportPng(): Promise<void> {
+    await attempt(this, async () => {
+      downloadBlob(this.fileName('png'), await rasterise(serialiseChart(this.chartSvg()), 2))
+    })
+  }
+
+  private async exportMarkdown(): Promise<void> {
+    await attempt(this, async () => {
+      const text = compareToMarkdown(this.ordered, this.topics, {
+        title: this.sessionName || undefined,
+        formatDate: (date) => formatDate(date),
+      })
+      let copied = false
+      try {
+        await navigator.clipboard.writeText(text)
+        copied = true
+      } catch {
+        // No clipboard permission: the download below still delivers the text.
+      }
+      downloadText(this.fileName('md'), text, 'text/markdown')
+      notify(this, {
+        variant: 'success',
+        message: copied
+          ? 'Markdown copied to the clipboard and downloaded.'
+          : 'Markdown downloaded.',
+      })
+    })
+  }
 
   protected override createRenderRoot(): HTMLElement {
     return this
   }
 
   override render() {
-    const ordered = [...this.rankings].sort(compareRankings)
+    const ordered = this.ordered
     if (ordered.length < 2) {
       return html`<div class="rv-empty wa-stack wa-gap-s wa-align-items-center">
         <wa-icon name="chart-line"></wa-icon>
@@ -34,9 +99,19 @@ export class RvCompareView extends LitElement {
     const first = ordered[0]!
     const last = ordered[ordered.length - 1]!
     return html`
-      <header class="wa-stack wa-gap-2xs">
-        <h1 class="wa-heading-l rv-page-title">Compare ${ordered.length} rankings</h1>
-        <p class="rv-page-subtitle">${formatDate(first.date)} to ${formatDate(last.date)}. Each line is a topic; up means a higher priority.</p>
+      <header class="wa-split wa-align-items-start">
+        <div class="wa-stack wa-gap-2xs">
+          <h1 class="wa-heading-l rv-page-title">Compare ${ordered.length} rankings</h1>
+          <p class="rv-page-subtitle">${formatDate(first.date)} to ${formatDate(last.date)}. Each line is a topic; up means a higher priority.</p>
+        </div>
+        <wa-dropdown placement="bottom-end" @wa-select=${this.onExport}>
+          <wa-button slot="trigger" size="s" appearance="outlined" with-caret>
+            <wa-icon slot="start" name="download"></wa-icon>Export
+          </wa-button>
+          <wa-dropdown-item value="svg"><wa-icon slot="icon" name="chart-line"></wa-icon>Chart as SVG</wa-dropdown-item>
+          <wa-dropdown-item value="png"><wa-icon slot="icon" name="chart-line"></wa-icon>Chart as PNG (2x)</wa-dropdown-item>
+          <wa-dropdown-item value="markdown"><wa-icon slot="icon" name="list-ol"></wa-icon>Summary and table as Markdown</wa-dropdown-item>
+        </wa-dropdown>
       </header>
       <wa-card>
         <rv-bump-chart .rankings=${ordered} .topics=${this.topics}></rv-bump-chart>

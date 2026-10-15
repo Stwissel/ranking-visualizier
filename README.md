@@ -14,6 +14,7 @@ as JSON or synced with your own CouchDB.
   of the newest one; reorder by dragging the handle or with the arrow buttons.
 - **Compare** two or more rankings: a bump chart draws one line per topic in its colour, and a
   table lists each rank and the change from the previous snapshot.
+  Export the chart as SVG or PNG, or the summary and table as Markdown.
 - **Sessions** are independent sets of topics and rankings; switch between them in the header.
 - **Export and import** any session or all of them as JSON.
 - **Sync** with a CouchDB, live or on demand, configured in the app. Credentials stay in the

@@ -30,7 +30,12 @@ export function exportFileName(date: string, sessionName?: string): string {
 
 /** Triggers a download of `text` as a file. */
 export function downloadText(fileName: string, text: string, type = 'application/json'): void {
-  const url = URL.createObjectURL(new Blob([text], { type }))
+  downloadBlob(fileName, new Blob([text], { type }))
+}
+
+/** Triggers a download of a blob. */
+export function downloadBlob(fileName: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = fileName
