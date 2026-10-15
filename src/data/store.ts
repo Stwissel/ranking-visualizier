@@ -9,6 +9,7 @@
 import {
   type AnyDoc,
   compareRankings,
+  DEFAULT_COLOURS,
   ids,
   isHexColour,
   isIsoDate,
@@ -25,6 +26,16 @@ import {
 } from './model.js'
 
 export type Database = PouchDB.Database<AnyDoc>
+
+/** Puts things back the way they were before an action. */
+export type Undo = () => Promise<void>
+
+/** Equal apart from the revision. */
+function sameContent(a: AnyDoc, b: AnyDoc): boolean {
+  const { _rev: ra, ...ca } = a
+  const { _rev: rb, ...cb } = b
+  return JSON.stringify(ca) === JSON.stringify(cb)
+}
 
 export interface StoreOptions {
   /** Injected so tests get stable timestamps. */
@@ -195,6 +206,61 @@ export class Store {
       await this.db.put(newest)
     }
     return this.get<TopicDoc>(doc._id)
+  }
+
+  /**
+   * Creates several topics at once. Colours come from `DEFAULT_COLOURS`, skipping the ones the
+   * session already uses, then cycling. A title that already exists in the session, or appears
+   * twice in the input (case-insensitively), is refused before anything is written.
+   */
+  async createTopics(
+    sid: SessionId,
+    inputs: readonly { title: string; description?: string }[],
+  ): Promise<TopicDoc[]> {
+    await this.getSession(sid)
+    const existing = await this.listTopics(sid)
+    const taken = new Set(existing.map((topic) => topic.title.trim().toLowerCase()))
+    const seen = new Set<string>()
+    const duplicates: string[] = []
+    const titles = inputs.map((input) => requireText(input.title, 'Topic title'))
+    for (const title of titles) {
+      const key = title.toLowerCase()
+      if (taken.has(key) || seen.has(key)) duplicates.push(title)
+      seen.add(key)
+    }
+    if (duplicates.length > 0) {
+      throw new ValidationError(
+        `Already in this session or listed twice: ${[...new Set(duplicates)].join(', ')}`,
+      )
+    }
+    const used = new Set(existing.map((topic) => topic.colour))
+    const palette = DEFAULT_COLOURS.filter((colour) => !used.has(colour))
+    const colours = palette.length > 0 ? palette : [...DEFAULT_COLOURS]
+    const docs: TopicDoc[] = titles.map((title, index) => ({
+      _id: ids.topic(sid, this.idGenerator()),
+      type: 'topic',
+      sessionId: sid,
+      title,
+      colour: colours[index % colours.length]!,
+      description: inputs[index]?.description?.trim() ?? '',
+    }))
+    requireAllWritten(await this.db.bulkDocs(docs), `while creating ${docs.length} topics`)
+    const newest = await this.newestRanking(sid)
+    if (newest) {
+      const tierId = lastTierOf(newest)
+      for (const doc of docs) {
+        newest.items.push({
+          topicId: shortId(doc._id),
+          description: doc.description ?? '',
+          ...(tierId ? { tierId } : {}),
+        })
+      }
+      await this.db.put(newest)
+    }
+    const written = await this.db.allDocs({ include_docs: true, keys: docs.map((doc) => doc._id) })
+    return written.rows
+      .map((row) => ('doc' in row ? (row.doc as TopicDoc) : undefined))
+      .filter((doc): doc is TopicDoc => doc !== undefined)
   }
 
   async updateTopic(
@@ -435,6 +501,35 @@ export class Store {
   async deleteRanking(sid: SessionId, rid: RankingId): Promise<void> {
     const doc = await this.getRanking(sid, rid)
     await this.db.remove(doc._id, doc._rev!)
+  }
+
+  // ---- undo -----------------------------------------------------------------------------
+
+  /**
+   * Runs `action` and returns, with its result, a function that puts the session's documents
+   * back the way they were before it. The whole session is snapshotted: it is tens of
+   * documents, and knowing exactly which ones an action touches is a maintenance burden the
+   * size of the data does not justify. Restoring writes only what differs, so an undo of a
+   * reorder is one write, and documents the action deleted come back under fresh revisions.
+   */
+  async undoable<T>(sid: SessionId, action: () => Promise<T>): Promise<{ result: T; undo: Undo }> {
+    const before = new Map((await this.sessionDocuments(sid)).map((doc) => [doc._id, doc]))
+    const result = await action()
+    const undo: Undo = async () => {
+      const now = new Map((await this.sessionDocuments(sid)).map((doc) => [doc._id, doc]))
+      const writes: PouchDB.Core.PutDocument<AnyDoc>[] = []
+      for (const [id, doc] of before) {
+        const current = now.get(id)
+        if (current && sameContent(current, doc)) continue
+        const { _rev: _, ...content } = doc
+        writes.push(current ? { ...content, _rev: current._rev } : content)
+      }
+      for (const [id, doc] of now) {
+        if (!before.has(id)) writes.push({ ...doc, _deleted: true })
+      }
+      if (writes.length > 0) requireAllWritten(await this.db.bulkDocs(writes), 'while undoing')
+    }
+    return { result, undo }
   }
 
   // ---- changes --------------------------------------------------------------------------

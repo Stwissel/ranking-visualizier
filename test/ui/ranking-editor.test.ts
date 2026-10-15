@@ -82,9 +82,10 @@ describe('<rv-ranking-editor>', () => {
     editor.ranking = stored!
     await editor.updateComplete
     expect(titles(editor)).toEqual(['Beta', 'Alpha', 'Gamma'])
-    expect(editor.querySelector('[role=status]')?.textContent).toContain(
-      'Moved Alpha to position 2 of 3',
-    )
+    // The announcement follows the undo snapshot, a few ticks after the write itself.
+    const status = () => editor.querySelector('[role=status]')?.textContent ?? ''
+    await until(() => status().includes('Moved Alpha'))
+    expect(status()).toContain('Moved Alpha to position 2 of 3')
   })
 
   it('saves a description for this ranking only', async () => {

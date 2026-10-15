@@ -7,6 +7,7 @@ rv-rankings-nav,
 rv-ranking-editor,
 rv-topics-view,
 rv-compare-view,
+rv-present-view,
 rv-bump-chart {
   display: block;
 }
@@ -413,6 +414,10 @@ wa-page[view="mobile"] .rv-rank-actions {
   opacity: 0.18;
 }
 
+.rv-chart[size="large"] .topic-line {
+  stroke-width: 4;
+}
+
 .rv-chart .topic:focus-visible .topic-line {
   stroke-width: 5;
 }
@@ -428,6 +433,34 @@ wa-page[view="mobile"] .rv-rank-actions {
   inset-block-start: 0;
   inline-size: 60rem;
   visibility: hidden;
+}
+
+/* Presentation ---------------------------------------------------------------------- */
+
+rv-present-view {
+  outline: none;
+}
+
+/* Over everything, including the sticky header, on the page surface. */
+.rv-present {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: auto;
+  padding: var(--wa-space-xl) var(--wa-space-2xl);
+  background: var(--wa-color-surface-default);
+}
+
+.rv-chart[size="large"] {
+  font-size: var(--wa-font-size-m);
+}
+
+.rv-chart[size="large"] .topic-rank {
+  font-size: var(--wa-font-size-s);
+}
+
+.rv-chart[size="large"] .topic-label {
+  font-size: var(--wa-font-size-l);
 }
 
 /* Sync badge ------------------------------------------------------------------------- */

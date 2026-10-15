@@ -1,5 +1,5 @@
-import { html } from 'lit'
-import { DEFAULT_COLOURS } from '../../data/model.js'
+import { html, nothing } from 'lit'
+import { DEFAULT_COLOURS, parseTopicLines } from '../../data/model.js'
 import { DialogElement, formValues } from './base.js'
 
 /**
@@ -16,6 +16,7 @@ export class RvTopicDialog extends DialogElement {
     ranked: { type: Boolean },
     editing: { type: Boolean },
     submitLabel: { type: String },
+    many: { state: true },
   }
 
   label = 'New topic'
@@ -25,10 +26,20 @@ export class RvTopicDialog extends DialogElement {
   ranked = false
   editing = false
   submitLabel = 'Create'
+  /** Several topics at once, one per line. Only offered when creating. */
+  many = false
 
   private onSubmit = (event: SubmitEvent): void => {
     event.preventDefault()
-    const { title, colour, description } = formValues(event.target as HTMLFormElement)
+    const values = formValues(event.target as HTMLFormElement)
+    if (this.many) {
+      const lines = parseTopicLines(values.lines ?? '')
+      if (lines.length === 0) return
+      this.emit('rv-submit-many', { lines })
+      this.close()
+      return
+    }
+    const { title, colour, description } = values
     if (!title?.trim() || !colour) return
     this.emit('rv-submit', { title: title.trim(), colour, description: description ?? '' })
     this.close()
@@ -38,7 +49,40 @@ export class RvTopicDialog extends DialogElement {
     return html`
       <wa-dialog open label=${this.label} @wa-after-hide=${this.onAfterHide}>
         <form id="rv-topic-form" class="wa-stack wa-gap-m" @submit=${this.onSubmit}>
-          <wa-input name="title" label="Title" .value=${this.title} required autofocus></wa-input>
+          ${
+            this.editing
+              ? nothing
+              : html`<wa-switch
+                  ?checked=${this.many}
+                  @change=${(e: Event) => {
+                    this.many = (e.target as HTMLInputElement).checked
+                  }}
+                  >Several at once</wa-switch
+                >`
+          }
+          ${this.many ? this.renderMany() : this.renderOne()}
+        </form>
+        <wa-button slot="footer" appearance="plain" data-dialog="close">Cancel</wa-button>
+        <wa-button slot="footer" variant="brand" type="submit" form="rv-topic-form">${this.submitLabel}</wa-button>
+      </wa-dialog>
+    `
+  }
+
+  private renderMany() {
+    return html`<wa-textarea
+      name="lines"
+      label="Topics"
+      hint="One per line. Add a description after a pipe: Title | why it matters. Colours are assigned in order."
+      rows="6"
+      resize="auto"
+      placeholder="Platform reliability | keeps the lights on&#10;Mobile app&#10;Billing revamp"
+      required
+      autofocus
+    ></wa-textarea>`
+  }
+
+  private renderOne() {
+    return html`<wa-input name="title" label="Title" .value=${this.title} required autofocus></wa-input>
           <wa-color-picker
             name="colour"
             label="Colour"
@@ -60,12 +104,7 @@ export class RvTopicDialog extends DialogElement {
             rows="2"
             resize="auto"
             .value=${this.description}
-          ></wa-textarea>
-        </form>
-        <wa-button slot="footer" appearance="plain" data-dialog="close">Cancel</wa-button>
-        <wa-button slot="footer" variant="brand" type="submit" form="rv-topic-form">${this.submitLabel}</wa-button>
-      </wa-dialog>
-    `
+          ></wa-textarea>`
   }
 }
 

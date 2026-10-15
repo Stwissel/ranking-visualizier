@@ -17,7 +17,7 @@ import {
 } from '../data/model.js'
 import './change-summary.js'
 import type { Store } from '../data/store.js'
-import { attempt, requestDialog } from './events.js'
+import { attempt, offerUndo, requestDialog } from './events.js'
 import { formatDate } from './format.js'
 import { trendTag } from './trend.js'
 
@@ -127,13 +127,16 @@ export class RvRankingEditor extends LitElement {
     this.pending = true
     const title = this.topicOf(movedId)?.title ?? 'Topic'
     const store = this.store
-    const ok = await attempt(this, () =>
-      store.reorderRanking(this.sid, shortId(this.ranking._id), placement.ids, placement.tiers),
-    )
+    const position = placement.ids.indexOf(movedId) + 1
+    const tier = placement.tiers?.[movedId]
+    const tierName = tier ? this.tierById(tier)?.name : undefined
+    const ok = await attempt(this, async () => {
+      const { undo } = await store.undoable(this.sid, () =>
+        store.reorderRanking(this.sid, shortId(this.ranking._id), placement.ids, placement.tiers),
+      )
+      offerUndo(this, { message: `Moved ${title} to #${position}`, undo })
+    })
     if (ok) {
-      const position = placement.ids.indexOf(movedId) + 1
-      const tier = placement.tiers?.[movedId]
-      const tierName = tier ? this.tierById(tier)?.name : undefined
       this.announcement = `Moved ${title} to position ${position} of ${placement.ids.length}${
         tierName ? `, in ${tierName}` : ''
       }.`
