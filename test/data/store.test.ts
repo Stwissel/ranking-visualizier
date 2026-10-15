@@ -1,0 +1,218 @@
+import { describe, expect, it } from 'vitest'
+import { shortId } from '../../src/data/model.js'
+import { NotFoundError, ValidationError } from '../../src/data/store.js'
+import { testStore } from './support/memory-database.js'
+
+async function seeded() {
+  const store = testStore()
+  const session = await store.createSession('Work')
+  const sid = shortId(session._id)
+  const a = await store.createTopic(sid, { title: 'Alpha', colour: '#FF0000' })
+  const b = await store.createTopic(sid, { title: 'Beta', colour: '#00ff00' })
+  const c = await store.createTopic(sid, { title: 'Gamma', colour: '#0000ff' })
+  return { store, sid, a: shortId(a._id), b: shortId(b._id), c: shortId(c._id) }
+}
+
+describe('sessions', () => {
+  it('creates, lists, renames and deletes with everything inside', async () => {
+    const { store, sid } = await seeded()
+    await store.createRanking(sid, { name: 'Q1', date: '2026-01-15' })
+    const other = await store.createSession('Home')
+
+    expect((await store.listSessions()).map((s) => s.name)).toEqual(['Home', 'Work'])
+    await store.renameSession(sid, 'Office')
+    expect((await store.getSession(sid)).name).toBe('Office')
+
+    await store.deleteSession(sid)
+    expect(await store.listSessions()).toHaveLength(1)
+    expect(await store.listTopics(sid)).toEqual([])
+    expect(await store.listRankings(sid)).toEqual([])
+    await expect(store.getSession(sid)).rejects.toBeInstanceOf(NotFoundError)
+    expect((await store.getSession(shortId(other._id))).name).toBe('Home')
+  })
+
+  it('refuses an empty name', async () => {
+    const store = testStore()
+    await expect(store.createSession('   ')).rejects.toBeInstanceOf(ValidationError)
+  })
+})
+
+describe('topics', () => {
+  it('normalises colour and validates input', async () => {
+    const { store, sid, a } = await seeded()
+    expect((await store.getTopic(sid, a)).colour).toBe('#ff0000')
+    await expect(store.createTopic(sid, { title: 'X', colour: 'red' })).rejects.toBeInstanceOf(
+      ValidationError,
+    )
+    await expect(
+      store.createTopic('nope', { title: 'X', colour: '#000000' }),
+    ).rejects.toBeInstanceOf(NotFoundError)
+    await store.updateTopic(sid, a, { title: 'Alpha prime', colour: '#ABCDEF' })
+    const updated = await store.getTopic(sid, a)
+    expect(updated.title).toBe('Alpha prime')
+    expect(updated.colour).toBe('#abcdef')
+  })
+
+  it('appends a new topic to the newest ranking only', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const old = await store.createRanking(sid, { name: 'Old', date: '2026-01-01' })
+    const newer = await store.createRanking(sid, { name: 'New', date: '2026-02-01' })
+    const d = await store.createTopic(sid, {
+      title: 'Delta',
+      colour: '#123456',
+      description: 'fresh',
+    })
+
+    const oldItems = (await store.getRanking(sid, shortId(old._id))).items
+    const newItems = (await store.getRanking(sid, shortId(newer._id))).items
+    expect(oldItems.map((i) => i.topicId)).toEqual([a, b, c])
+    expect(newItems.map((i) => i.topicId)).toEqual([a, b, c, shortId(d._id)])
+    expect(newItems[3]?.description).toBe('fresh')
+  })
+
+  it('retires a topic from a ranking and later ones, keeping earlier history and the topic', async () => {
+    const { store, sid, b } = await seeded()
+    const r1 = await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })
+    const r2 = await store.createRanking(sid, { name: 'R2', date: '2026-02-01' })
+    const r3 = await store.createRanking(sid, { name: 'R3', date: '2026-03-01' })
+
+    await store.retireTopic(sid, b, shortId(r2._id))
+
+    const has = async (rid: string) =>
+      (await store.getRanking(sid, shortId(rid))).items.some((i) => i.topicId === b)
+    expect(await has(r1._id)).toBe(true)
+    expect(await has(r2._id)).toBe(false)
+    expect(await has(r3._id)).toBe(false)
+    expect((await store.getTopic(sid, b)).title).toBe('Beta')
+  })
+
+  it('retires from the newest ranking when none is named', async () => {
+    const { store, sid, a } = await seeded()
+    const r1 = await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })
+    const r2 = await store.createRanking(sid, { name: 'R2', date: '2026-02-01' })
+    await store.retireTopic(sid, a)
+    expect((await store.getRanking(sid, shortId(r1._id))).items.map((i) => i.topicId)).toContain(a)
+    expect(
+      (await store.getRanking(sid, shortId(r2._id))).items.map((i) => i.topicId),
+    ).not.toContain(a)
+  })
+
+  it('orders "later" by date, then creation time', async () => {
+    const { store, sid, a } = await seeded()
+    const first = await store.createRanking(sid, { name: 'same day, first', date: '2026-05-05' })
+    const second = await store.createRanking(sid, { name: 'same day, second', date: '2026-05-05' })
+    const earlierDate = await store.createRanking(sid, {
+      name: 'dated earlier',
+      date: '2026-04-01',
+    })
+    await store.retireTopic(sid, a, shortId(first._id))
+    const items = async (rid: string) =>
+      (await store.getRanking(sid, shortId(rid))).items.map((i) => i.topicId)
+    expect(await items(earlierDate._id)).toContain(a)
+    expect(await items(first._id)).not.toContain(a)
+    expect(await items(second._id)).not.toContain(a)
+  })
+
+  it('deletes a topic completely', async () => {
+    const { store, sid, c } = await seeded()
+    const r1 = await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })
+    await store.deleteTopic(sid, c)
+    await expect(store.getTopic(sid, c)).rejects.toBeInstanceOf(NotFoundError)
+    expect(
+      (await store.getRanking(sid, shortId(r1._id))).items.map((i) => i.topicId),
+    ).not.toContain(c)
+    expect(await store.listTopics(sid)).toHaveLength(2)
+  })
+
+  it('re-adds a retired topic at the bottom of a ranking, once', async () => {
+    const { store, sid, a } = await seeded()
+    const r1 = await store.createRanking(sid, { name: 'R1', date: '2026-01-01' })
+    const rid = shortId(r1._id)
+    await store.retireTopic(sid, a, rid)
+    await store.addTopicToRanking(sid, rid, a)
+    await store.addTopicToRanking(sid, rid, a)
+    const topicIds = (await store.getRanking(sid, rid)).items.map((i) => i.topicId)
+    expect(topicIds).toEqual([...topicIds.filter((t) => t !== a), a])
+    expect(topicIds.filter((t) => t === a)).toHaveLength(1)
+  })
+})
+
+describe('rankings', () => {
+  it('starts from all topics when there is no predecessor', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'First', date: '2026-01-01' })
+    expect(ranking.items).toEqual([
+      { topicId: a, description: '' },
+      { topicId: b, description: '' },
+      { topicId: c, description: '' },
+    ])
+  })
+
+  it('copies order and descriptions from the newest ranking', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const first = await store.createRanking(sid, { name: 'First', date: '2026-01-01' })
+    const rid = shortId(first._id)
+    await store.reorderRanking(sid, rid, [c, a, b])
+    await store.setDescription(sid, rid, c, 'top priority')
+    const second = await store.createRanking(sid, { name: 'Second', date: '2026-02-01' })
+    expect(second.items).toEqual([
+      { topicId: c, description: 'top priority' },
+      { topicId: a, description: '' },
+      { topicId: b, description: '' },
+    ])
+    // Descriptions are per ranking: changing one leaves the other alone.
+    await store.setDescription(sid, shortId(second._id), c, 'still top')
+    expect((await store.getRanking(sid, rid)).items[0]?.description).toBe('top priority')
+  })
+
+  it('lists newest first and validates dates', async () => {
+    const { store, sid } = await seeded()
+    await store.createRanking(sid, { name: 'B', date: '2026-02-01' })
+    await store.createRanking(sid, { name: 'A', date: '2026-01-01' })
+    await store.createRanking(sid, { name: 'C', date: '2026-03-01' })
+    expect((await store.listRankings(sid)).map((r) => r.name)).toEqual(['C', 'B', 'A'])
+    await expect(
+      store.createRanking(sid, { name: 'X', date: '01/02/2026' }),
+    ).rejects.toBeInstanceOf(ValidationError)
+    await expect(
+      store.createRanking(sid, { name: 'X', date: '2026-13-45' }),
+    ).rejects.toBeInstanceOf(ValidationError)
+    // Date.parse would roll this into March; the store must not.
+    await expect(
+      store.createRanking(sid, { name: 'X', date: '2026-02-30' }),
+    ).rejects.toBeInstanceOf(ValidationError)
+  })
+
+  it('refuses a reorder that is not a permutation', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    await expect(store.reorderRanking(sid, rid, [a, b])).rejects.toBeInstanceOf(ValidationError)
+    await expect(store.reorderRanking(sid, rid, [a, a, b])).rejects.toBeInstanceOf(ValidationError)
+    await expect(store.reorderRanking(sid, rid, [a, b, 'zzz'])).rejects.toBeInstanceOf(
+      ValidationError,
+    )
+    expect((await store.getRanking(sid, rid)).items.map((i) => i.topicId)).toEqual([a, b, c])
+  })
+
+  it('updates name and date, and deletes', async () => {
+    const { store, sid } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    await store.updateRanking(sid, rid, { name: 'Renamed', date: '2026-06-06' })
+    const updated = await store.getRanking(sid, rid)
+    expect([updated.name, updated.date]).toEqual(['Renamed', '2026-06-06'])
+    await store.deleteRanking(sid, rid)
+    await expect(store.getRanking(sid, rid)).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('notifies subscribers of changes', async () => {
+    const { store, sid } = await seeded()
+    const seen: string[] = []
+    const unsubscribe = store.subscribe((change) => seen.push(change.id))
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    unsubscribe()
+    expect(seen).toContain(ranking._id)
+  })
+})

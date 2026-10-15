@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Vitest browser-mode failure screenshots
+test/ui/__screenshots__
+
+# Vitest browser-mode attachments
+.vitest-attachments
