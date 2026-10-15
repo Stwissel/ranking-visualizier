@@ -266,6 +266,10 @@ describe('createTopics', () => {
     ])
   })
 
+  it('accepts CRLF, LF and lone CR line endings', () => {
+    expect(parseTopicLines('A\r\nB\rC\nD').map((line) => line.title)).toEqual(['A', 'B', 'C', 'D'])
+  })
+
   it('creates several topics with unused colours and appends them to the newest ranking', async () => {
     const { store, sid } = await seeded()
     const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })

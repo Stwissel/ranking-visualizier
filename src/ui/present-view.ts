@@ -35,15 +35,30 @@ export class RvPresentView extends LitElement {
     super.connectedCallback()
     this.setAttribute('tabindex', '0')
     this.addEventListener('keydown', this.onKeyDown)
+    document.addEventListener('fullscreenchange', this.onFullscreenChange)
     if (document.fullscreenEnabled && !document.fullscreenElement) {
-      void document.documentElement.requestFullscreen().catch(() => undefined)
+      void document.documentElement
+        .requestFullscreen()
+        .then(() => this.setAttribute('data-fullscreen', ''))
+        .catch(() => undefined)
     }
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback()
     this.removeEventListener('keydown', this.onKeyDown)
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange)
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+  }
+
+  /** The browser's own way out of fullscreen (its Escape, a gesture) leaves the mode too. */
+  private onFullscreenChange = (): void => {
+    if (!document.fullscreenElement && this.entered) this.leave()
+  }
+
+  /** Set once fullscreen was granted, so an early change event does not bounce us out. */
+  private get entered(): boolean {
+    return this.hasAttribute('data-fullscreen')
   }
 
   protected override firstUpdated(): void {
@@ -51,6 +66,15 @@ export class RvPresentView extends LitElement {
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
+    const target = event.target as HTMLElement | null
+    const onControl =
+      target !== this && target?.closest('wa-button, button, a, input, select, textarea')
+    // Enter and space on a button activate the button; only the surface itself steps on them.
+    if (onControl && (event.key === 'Enter' || event.key === ' ')) return
+    if (event.key === 'Tab') {
+      this.cycleFocus(event)
+      return
+    }
     const total = this.ordered.length
     const actions: Record<string, () => void> = {
       ArrowRight: () => this.go(this.step + 1),
@@ -67,6 +91,27 @@ export class RvPresentView extends LitElement {
     if (!action) return
     event.preventDefault()
     action()
+  }
+
+  /**
+   * The surface covers the page, so Tab must not wander into the controls behind it: focus
+   * cycles between the surface and its own buttons.
+   */
+  private cycleFocus(event: KeyboardEvent): void {
+    const stops: HTMLElement[] = [
+      this,
+      ...[...this.querySelectorAll<HTMLElement>('wa-button:not([disabled])')],
+    ]
+    const active = document.activeElement
+    // The innermost stop holding focus: the surface contains every button, so it is checked last.
+    let index = 0
+    stops.forEach((stop, at) => {
+      if (stop === active || (active && stop.contains(active))) index = at
+    })
+    const next = stops[(index + (event.shiftKey ? -1 : 1) + stops.length) % stops.length]
+    if (!next) return
+    event.preventDefault()
+    next.focus()
   }
 
   private go(step: number): void {

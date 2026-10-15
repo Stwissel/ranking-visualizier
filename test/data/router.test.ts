@@ -16,6 +16,8 @@ describe('router', () => {
 
   it('falls back to home for anything it does not know', () => {
     expect(parseRoute('#/present/')).toEqual({ view: 'home' })
+    expect(parseRoute('#/present/%')).toEqual({ view: 'home' })
+    expect(parseRoute('#/ranking/%E0%A4%A')).toEqual({ view: 'home' })
     expect(parseRoute('#/nope')).toEqual({ view: 'home' })
     expect(parseRoute('')).toEqual({ view: 'home' })
   })

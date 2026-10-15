@@ -146,7 +146,7 @@ export interface TopicLine {
  */
 export function parseTopicLines(text: string): TopicLine[] {
   return text
-    .split(/\r?\n/)
+    .split(/\r\n|\r|\n/)
     .map((line) => {
       const pipe = line.indexOf('|')
       const title = (pipe === -1 ? line : line.slice(0, pipe)).trim()

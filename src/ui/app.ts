@@ -212,9 +212,14 @@ export class RvApp extends LitElement {
     void this.showUndo(event.detail)
   }
 
-  /** One undo at a time: a new offer replaces the toast of the previous one. */
+  /**
+   * One undo at a time: a new offer replaces the toast of the previous one. Each toast's
+   * Undo button is bound to its own offer, and a toast whose offer was superseded while it
+   * was still being created is dropped on arrival, so a click never undoes a different action.
+   */
   private async showUndo(offer: UndoOffer): Promise<void> {
     this.undoToast?.hide()
+    this.undoToast = undefined
     this.pendingUndo = offer
     const toast = this.querySelector('wa-toast') as
       | (HTMLElement & {
@@ -227,15 +232,18 @@ export class RvApp extends LitElement {
         `<wa-button size="s" appearance="outlined" data-undo>Undo</wa-button></span>`,
       { allowHtml: true, duration: 8000, variant: 'neutral', icon: 'rotate' },
     )
+    if (this.pendingUndo !== offer) {
+      item.hide()
+      return
+    }
     this.undoToast = item
+    item.addEventListener('click', (event) => {
+      if ((event.target as HTMLElement).closest('[data-undo]')) void this.runUndo(offer)
+    })
     item.addEventListener('wa-after-hide', () => {
       if (this.pendingUndo === offer) this.pendingUndo = undefined
       if (this.undoToast === item) this.undoToast = undefined
     })
-  }
-
-  private onToastClick = (event: Event): void => {
-    if ((event.target as HTMLElement).closest('[data-undo]')) void this.runUndo()
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
@@ -257,9 +265,9 @@ export class RvApp extends LitElement {
     void this.showUndo({ message, undo })
   }
 
-  private async runUndo(): Promise<void> {
-    const offer = this.pendingUndo
-    if (!offer) return
+  /** Runs `offer` (by default the pending one) once; a stale offer is ignored. */
+  private async runUndo(offer = this.pendingUndo): Promise<void> {
+    if (!offer || offer !== this.pendingUndo) return
     this.pendingUndo = undefined
     this.undoToast?.hide()
     this.undoToast = undefined
@@ -416,7 +424,7 @@ export class RvApp extends LitElement {
           ${this.renderView()}
         </main>
       </wa-page>
-      <wa-toast placement="bottom-center" @click=${this.onToastClick}></wa-toast>
+      <wa-toast placement="bottom-center"></wa-toast>
       <input id="rv-import-file" class="rv-hidden" type="file" accept="application/json,.json" @change=${this.onImportFile} />
       ${this.renderDialog()}
     `
@@ -647,7 +655,7 @@ export class RvApp extends LitElement {
           @rv-close=${close}></rv-text-dialog>`
       case 'delete-session':
         return html`<rv-confirm-dialog label="Delete session" confirmLabel="Delete" danger
-          message=${`Delete “${this.currentSession?.name ?? ''}” with its ${this.topics.length} topics and ${this.rankings.length} rankings? This cannot be undone.`}
+          message=${`Delete “${this.currentSession?.name ?? ''}” with its ${this.topics.length} topics and ${this.rankings.length} rankings? Undo is offered for a few seconds afterwards.`}
           @rv-confirm=${() =>
             sid &&
             attempt(this, async () => {

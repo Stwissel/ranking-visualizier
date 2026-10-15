@@ -1,4 +1,5 @@
 import '../../src/ui/styles/app.css'
+import '@awesome.me/webawesome/dist/components/button/button.js'
 import '../../src/ui/present-view.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { RankingDoc, TopicDoc } from '../../src/data/model.js'
@@ -67,5 +68,20 @@ describe('<rv-present-view>', () => {
   it('draws at the large size', async () => {
     const view = await mount()
     expect(view.querySelector('svg.rv-chart')?.getAttribute('size')).toBe('large')
+  })
+})
+
+describe('<rv-present-view> keyboard on controls', () => {
+  it('leaves Enter and space to the buttons and keeps Tab inside the surface', async () => {
+    const view = await mount()
+    const leave = [...view.querySelectorAll('wa-button')].at(-1) as HTMLElement
+    leave.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await view.updateComplete
+    expect(ticks(view)).toEqual(['r1'])
+    leave.focus()
+    leave.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+    expect(document.activeElement).toBe(view)
+    view.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, shiftKey: true }))
+    expect(document.activeElement).toBe(leave)
   })
 })
