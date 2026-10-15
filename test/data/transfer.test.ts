@@ -160,6 +160,24 @@ describe('import', () => {
     expect(shortId(b._id)).toBeTruthy()
   })
 
+  it('round-trips tiers and rejects an item naming an unknown tier', async () => {
+    const { store, sid, ranking } = await populated()
+    const rid = shortId(ranking._id)
+    const must = await store.addTier(sid, rid, 'Must')
+    await store.addTier(sid, rid, 'Later')
+    const file = await exportSessions(store)
+    const parsed = parseExport(JSON.stringify(file))
+    expect(parsed.sessions[0]?.rankings[0]?.tiers?.map((t) => t.name)).toEqual(['Must', 'Later'])
+    expect(parsed.sessions[0]?.rankings[0]?.items.every((i) => i.tierId === must.id)).toBe(true)
+    const target = testStore()
+    await importSessions(target, parsed, 'skip')
+    expect((await target.listRankings(sid))[0]?.tiers?.length).toBe(2)
+
+    const broken = JSON.parse(JSON.stringify(file)) as typeof file
+    broken.sessions[0]!.rankings[0]!.items[0]!.tierId = 'ghost'
+    expect(() => parseExport(JSON.stringify(broken))).toThrowError(/unknown tier/)
+  })
+
   it('duplicateSession rewrites every id consistently', async () => {
     const { store } = await populated()
     const [entry] = (await exportSessions(store)).sessions

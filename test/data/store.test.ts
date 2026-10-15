@@ -256,3 +256,90 @@ describe('rankings', () => {
     expect(seen).toContain(ranking._id)
   })
 })
+
+describe('tiers', () => {
+  it('the first tier takes every item; later tiers start empty; a new ranking copies them', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    const must = await store.addTier(sid, rid, 'Must')
+    const later = await store.addTier(sid, rid, 'Later')
+    let doc = await store.getRanking(sid, rid)
+    expect(doc.tiers).toEqual([must, later])
+    expect(doc.items.map((i) => [i.topicId, i.tierId])).toEqual([
+      [a, must.id],
+      [b, must.id],
+      [c, must.id],
+    ])
+
+    await store.reorderRanking(sid, rid, [a, c, b], { [c]: later.id, [b]: later.id })
+    doc = await store.getRanking(sid, rid)
+    expect(doc.items.map((i) => [i.topicId, i.tierId])).toEqual([
+      [a, must.id],
+      [c, later.id],
+      [b, later.id],
+    ])
+
+    const next = await store.createRanking(sid, { name: 'Next', date: '2026-02-01' })
+    expect(next.tiers).toEqual([must, later])
+    expect(next.items.map((i) => i.tierId)).toEqual([must.id, later.id, later.id])
+  })
+
+  it('keeps each tier contiguous in tier order whatever order is given', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    const must = await store.addTier(sid, rid, 'Must')
+    const later = await store.addTier(sid, rid, 'Later')
+    await store.reorderRanking(sid, rid, [c, a, b], { [c]: later.id })
+    const doc = await store.getRanking(sid, rid)
+    // c was placed first but belongs to Later, so it follows the Must items, keeping a before b.
+    expect(doc.items.map((i) => [i.topicId, i.tierId])).toEqual([
+      [a, must.id],
+      [b, must.id],
+      [c, later.id],
+    ])
+  })
+
+  it('renames, and removing a tier hands its items to the tier above (or below for the first)', async () => {
+    const { store, sid, a, b, c } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    const must = await store.addTier(sid, rid, 'Must')
+    const should = await store.addTier(sid, rid, 'Should')
+    const later = await store.addTier(sid, rid, 'Later')
+    await store.reorderRanking(sid, rid, [a, b, c], { [b]: should.id, [c]: later.id })
+    await store.renameTier(sid, rid, should.id, 'Soon')
+    expect((await store.getRanking(sid, rid)).tiers?.[1]?.name).toBe('Soon')
+
+    await store.removeTier(sid, rid, later.id)
+    let doc = await store.getRanking(sid, rid)
+    expect(doc.tiers?.map((t) => t.id)).toEqual([must.id, should.id])
+    expect(doc.items.map((i) => [i.topicId, i.tierId])).toEqual([
+      [a, must.id],
+      [b, should.id],
+      [c, should.id],
+    ])
+
+    await store.removeTier(sid, rid, must.id)
+    doc = await store.getRanking(sid, rid)
+    expect(doc.items.every((i) => i.tierId === should.id)).toBe(true)
+
+    await store.removeTier(sid, rid, should.id)
+    doc = await store.getRanking(sid, rid)
+    expect(doc.tiers).toBeUndefined()
+    expect(doc.items.every((i) => i.tierId === undefined)).toBe(true)
+    await expect(store.removeTier(sid, rid, 'nope')).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('a topic added later joins the last tier of the newest ranking', async () => {
+    const { store, sid } = await seeded()
+    const ranking = await store.createRanking(sid, { name: 'R', date: '2026-01-01' })
+    const rid = shortId(ranking._id)
+    await store.addTier(sid, rid, 'Must')
+    const later = await store.addTier(sid, rid, 'Later')
+    const d = await store.createTopic(sid, { title: 'Delta', colour: '#123456' })
+    const doc = await store.getRanking(sid, rid)
+    expect(doc.items.at(-1)).toEqual({ topicId: shortId(d._id), description: '', tierId: later.id })
+  })
+})

@@ -15,9 +15,11 @@ import {
   newId,
   type RankingDoc,
   type RankingId,
+  type RankingItem,
   type SessionDoc,
   type SessionId,
   shortId,
+  type Tier,
   type TopicDoc,
   type TopicId,
 } from './model.js'
@@ -67,6 +69,29 @@ export function requireAllWritten(
 function requireDate(value: string): string {
   if (!isIsoDate(value)) throw new ValidationError(`Date must be YYYY-MM-DD, got "${value}"`)
   return value
+}
+
+/**
+ * Items regrouped so each tier's run is contiguous in tier order, relative order kept. With
+ * tiers present, an item without a valid tier is a caller error; it is put in the first tier
+ * rather than refused, since the list must stay whole.
+ */
+export function groupByTier(
+  items: readonly RankingItem[],
+  tiers: readonly Tier[] | undefined,
+): RankingItem[] {
+  if (!tiers?.length) return items.map(({ tierId: _, ...item }) => item)
+  const valid = new Set(tiers.map((tier) => tier.id))
+  const first = tiers[0]!.id
+  const normalised = items.map((item) =>
+    item.tierId && valid.has(item.tierId) ? item : { ...item, tierId: first },
+  )
+  return tiers.flatMap((tier) => normalised.filter((item) => item.tierId === tier.id))
+}
+
+/** The tier a newly placed item joins: the last one, when the ranking has tiers. */
+function lastTierOf(ranking: RankingDoc): string | undefined {
+  return ranking.tiers?.at(-1)?.id
 }
 
 export class Store {
@@ -165,7 +190,8 @@ export class Store {
     await this.db.put(doc)
     const newest = await this.newestRanking(sid)
     if (newest) {
-      newest.items.push({ topicId: shortId(doc._id), description })
+      const tierId = lastTierOf(newest)
+      newest.items.push({ topicId: shortId(doc._id), description, ...(tierId ? { tierId } : {}) })
       await this.db.put(newest)
     }
     return this.get<TopicDoc>(doc._id)
@@ -250,7 +276,12 @@ export class Store {
     const topic = await this.getTopic(sid, tid)
     const ranking = await this.getRanking(sid, rid)
     if (!ranking.items.some((item) => item.topicId === tid)) {
-      ranking.items.push({ topicId: tid, description: await this.carriedDescription(sid, topic) })
+      const tierId = lastTierOf(ranking)
+      ranking.items.push({
+        topicId: tid,
+        description: await this.carriedDescription(sid, topic),
+        ...(tierId ? { tierId } : {}),
+      })
       await this.db.put(ranking)
     }
     return this.getRanking(sid, rid)
@@ -294,6 +325,7 @@ export class Store {
       date: requireDate(input.date),
       createdAt: this.clock(),
       items,
+      ...(previous?.tiers?.length ? { tiers: previous.tiers.map((tier) => ({ ...tier })) } : {}),
     }
     await this.db.put(doc)
     return this.get<RankingDoc>(doc._id)
@@ -312,13 +344,16 @@ export class Store {
   }
 
   /**
-   * Sets the order. `topicIds` must be a permutation of the ranking's current topics; anything
-   * else means the caller's view of the ranking is stale and the write is refused.
+   * Sets the order, and with `tiers` the tier of each topic. `topicIds` must be a permutation
+   * of the ranking's current topics; anything else means the caller's view of the ranking is
+   * stale and the write is refused. When the ranking has tiers, the items are regrouped so each
+   * tier's items are contiguous in tier order, keeping the relative order given.
    */
   async reorderRanking(
     sid: SessionId,
     rid: RankingId,
     topicIds: readonly TopicId[],
+    tiers?: Readonly<Record<TopicId, string | undefined>>,
   ): Promise<RankingDoc> {
     const doc = await this.getRanking(sid, rid)
     const current = new Map(doc.items.map((item) => [item.topicId, item]))
@@ -328,11 +363,59 @@ export class Store {
     const items = topicIds.map((topicId) => {
       const item = current.get(topicId)
       if (!item) throw new ValidationError(`Topic ${topicId} is not in this ranking`)
-      return item
+      return tiers && topicId in tiers ? { ...item, tierId: tiers[topicId] } : item
     })
-    doc.items = items
+    doc.items = groupByTier(items, doc.tiers)
     await this.db.put(doc)
     return this.getRanking(sid, rid)
+  }
+
+  // ---- tiers ----------------------------------------------------------------------------
+
+  /**
+   * Appends a tier at the bottom. The first tier of a ranking takes every item, so the list
+   * stays whole; later tiers start empty.
+   */
+  async addTier(sid: SessionId, rid: RankingId, name: string): Promise<Tier> {
+    const doc = await this.getRanking(sid, rid)
+    const tier: Tier = { id: this.idGenerator(), name: requireText(name, 'Tier name') }
+    const first = !doc.tiers?.length
+    doc.tiers = [...(doc.tiers ?? []), tier]
+    if (first) doc.items = doc.items.map((item) => ({ ...item, tierId: tier.id }))
+    await this.db.put(doc)
+    return tier
+  }
+
+  async renameTier(sid: SessionId, rid: RankingId, tierId: string, name: string): Promise<void> {
+    const doc = await this.getRanking(sid, rid)
+    const tier = doc.tiers?.find((candidate) => candidate.id === tierId)
+    if (!tier) throw new NotFoundError(`${doc._id}#tier:${tierId}`)
+    tier.name = requireText(name, 'Tier name')
+    await this.db.put(doc)
+  }
+
+  /**
+   * Removes a tier. Its items join the tier above it, or the one below when it was the first;
+   * removing the last remaining tier leaves the ranking without tiers.
+   */
+  async removeTier(sid: SessionId, rid: RankingId, tierId: string): Promise<void> {
+    const doc = await this.getRanking(sid, rid)
+    const tiers = doc.tiers ?? []
+    const index = tiers.findIndex((tier) => tier.id === tierId)
+    if (index === -1) throw new NotFoundError(`${doc._id}#tier:${tierId}`)
+    const remaining = tiers.filter((tier) => tier.id !== tierId)
+    const heir = remaining[Math.max(index - 1, 0)]
+    doc.items = doc.items.map((item) =>
+      item.tierId === tierId ? { ...item, tierId: heir?.id } : item,
+    )
+    if (remaining.length === 0) {
+      doc.items = doc.items.map(({ tierId: _, ...item }) => item)
+      delete doc.tiers
+    } else {
+      doc.tiers = remaining
+      doc.items = groupByTier(doc.items, remaining)
+    }
+    await this.db.put(doc)
   }
 
   async setDescription(
