@@ -100,6 +100,7 @@ export class RvBumpChart extends LitElement {
     bands: { attribute: false },
     frame: { attribute: false },
     size: { type: String, reflect: true },
+    selected: { attribute: false },
     highlighted: { state: true },
     hover: { state: true },
     width: { state: true },
@@ -121,6 +122,11 @@ export class RvBumpChart extends LitElement {
   private get rowHeight(): number {
     return this.size === 'large' ? 56 : ROW_HEIGHT
   }
+  /**
+   * Topic pinned by a click (or Enter on a focused line). Stays highlighted until clicked again
+   * or the background is clicked; the owner may set it too, e.g. from a table row.
+   */
+  selected: string | undefined
   /** Topic id highlighted by hover or keyboard focus. */
   highlighted: string | undefined
   /** The hovered point, for the detail panel. */
@@ -355,14 +361,18 @@ export class RvBumpChart extends LitElement {
           .attr('class', 'topic')
           .attr('data-topic-id', (entry) => entry.topicId)
           .attr('tabindex', 0)
-          .attr('role', 'img')
+          .attr('role', 'button')
         group.append('title')
         group.append('path').attr('class', 'topic-line')
         group.append('g').attr('class', 'points')
         group.append('text').attr('class', 'topic-label').attr('dominant-baseline', 'middle')
         return group
       })
-      .attr('data-active', (entry) => (entry.topicId === this.highlighted ? '' : null))
+      .attr('data-active', (entry) =>
+        entry.topicId === this.highlighted || entry.topicId === this.selected ? '' : null,
+      )
+      .attr('data-selected', (entry) => (entry.topicId === this.selected ? '' : null))
+      .attr('aria-pressed', (entry) => (entry.topicId === this.selected ? 'true' : 'false'))
       .attr(
         'aria-label',
         (entry) =>
@@ -388,6 +398,15 @@ export class RvBumpChart extends LitElement {
       .on('blur', () => {
         this.highlighted = undefined
         this.hover = undefined
+      })
+      .on('click', (event: MouseEvent, entry) => {
+        event.stopPropagation()
+        this.toggle(entry.topicId)
+      })
+      .on('keydown', (event: KeyboardEvent, entry) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        this.toggle(entry.topicId)
       })
     topicGroups.select('title').text((entry) => entry.title)
     // A node drawn for the first time sits at its final position at once; transitions only
@@ -442,19 +461,44 @@ export class RvBumpChart extends LitElement {
     labels.filter(isFresh).attr('x', labelX).attr('y', labelY)
     labels.filter(isSettled).transition().duration(DURATION).attr('x', labelX).attr('y', labelY)
 
-    svg.toggleAttribute('data-focus', this.highlighted !== undefined)
+    svg.toggleAttribute('data-focus', this.highlighted !== undefined || this.selected !== undefined)
+  }
+
+  private toggle(topicId: string): void {
+    this.select(this.selected === topicId ? undefined : topicId)
+  }
+
+  /** Pins `topicId` (or clears the pin) and tells the owner, so a table can follow. */
+  private select(topicId: string | undefined): void {
+    if (this.selected === topicId) return
+    this.selected = topicId
+    this.dispatchEvent(
+      new CustomEvent<{ topicId: string | undefined }>('rv-select-topic', {
+        detail: { topicId },
+        bubbles: true,
+        composed: true,
+      }),
+    )
+  }
+
+  /** A click on the chart background, not on a line, clears the pin. */
+  private onBackgroundClick = (event: Event): void => {
+    if ((event.target as Element).closest('g.topic')) return
+    this.select(undefined)
   }
 
   override render() {
     const ordered = this.ordered
     const hovered = this.hover
     const series = this.series
-    const focused = series.find((entry) => entry.topicId === (hovered?.topicId ?? this.highlighted))
+    const focused = series.find(
+      (entry) => entry.topicId === (hovered?.topicId ?? this.highlighted ?? this.selected),
+    )
     const point = hovered
       ? focused?.points.filter(isRanked).find((p) => p.rankingIndex === hovered.rankingIndex)
       : undefined
     return html`
-      <svg class="rv-chart" size=${this.size} role="group" aria-label="Bump chart of ranks across the selected rankings" height=${this.height}>
+      <svg class="rv-chart" size=${this.size} role="group" aria-label="Bump chart of ranks across the selected rankings" height=${this.height} @click=${this.onBackgroundClick}>
         <g class="bands"></g>
         <g class="grid"></g>
         <g class="rank-axis"></g>
@@ -470,7 +514,7 @@ export class RvBumpChart extends LitElement {
                     ? html` · rank ${point.rank} in ${ordered[point.rankingIndex]?.name ?? ''}${point.description ? html`: <span class="rv-quiet">${point.description}</span>` : nothing}`
                     : html` · ${focused.points.map((p) => (p.rank === undefined ? '–' : `${p.rank}`)).join(' → ')}`
                 }`
-            : html`<span class="rv-quiet">Hover or focus a line for details. Rank 1 is the top.</span>`
+            : html`<span class="rv-quiet">Hover or focus a line for details; click to pin it. Rank 1 is the top.</span>`
         }
       </div>
     `

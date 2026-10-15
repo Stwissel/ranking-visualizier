@@ -117,4 +117,34 @@ describe('<rv-bump-chart>', () => {
     expect(chart.querySelector('g.topic[data-active]')).toBeTruthy()
     expect(chart.querySelector('.rv-chart-detail')?.textContent).toMatch(/rank \d in r2/)
   })
+
+  it('pins a clicked topic, tells its owner, and lets go on a second click or a background click', async () => {
+    const chart = await mount([
+      ranking('r1', '2026-01-01', ['a', 'b']),
+      ranking('r2', '2026-02-01', ['b', 'a']),
+    ])
+    const seen: (string | undefined)[] = []
+    chart.addEventListener('rv-select-topic', (event) => {
+      seen.push((event as CustomEvent<{ topicId: string | undefined }>).detail.topicId)
+    })
+    const alpha = chart.querySelector<SVGGElement>('g.topic[data-topic-id="a"]')!
+    alpha.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await chart.updateComplete
+    expect(chart.selected).toBe('a')
+    expect(alpha.hasAttribute('data-selected')).toBe(true)
+    expect(alpha.getAttribute('aria-pressed')).toBe('true')
+    expect(chart.querySelector('svg')?.hasAttribute('data-focus')).toBe(true)
+    expect(chart.querySelector('.rv-chart-detail')?.textContent).toContain('Alpha')
+    alpha.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await chart.updateComplete
+    expect(chart.selected).toBeUndefined()
+    alpha.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await chart.updateComplete
+    expect(chart.selected).toBe('a')
+    chart.querySelector('svg')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await chart.updateComplete
+    expect(chart.selected).toBeUndefined()
+    expect(chart.querySelector('svg')?.hasAttribute('data-focus')).toBe(false)
+    expect(seen).toEqual(['a', undefined, 'a', undefined])
+  })
 })
