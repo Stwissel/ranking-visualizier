@@ -379,6 +379,15 @@ wa-page[view="mobile"] .rv-rank-actions {
   min-block-size: 3.5em;
 }
 
+/* Off screen while a chart clone is measured for export; never visible. */
+.rv-chart-export-stage {
+  position: fixed;
+  inset-inline-start: -200vw;
+  inset-block-start: 0;
+  inline-size: 60rem;
+  visibility: hidden;
+}
+
 /* Sync badge ------------------------------------------------------------------------- */
 
 .rv-sync-button::part(base) {

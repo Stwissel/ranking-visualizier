@@ -500,7 +500,7 @@ export class RvApp extends LitElement {
       case 'compare': {
         const wanted = new Set(this.route.rids)
         const selected = this.rankings.filter((r) => wanted.has(shortId(r._id)))
-        return html`<rv-compare-view .rankings=${selected} .topics=${topicMap}></rv-compare-view>`
+        return html`<rv-compare-view .rankings=${selected} .topics=${topicMap} .sessionName=${this.currentSession?.name ?? ''}></rv-compare-view>`
       }
       case 'ranking': {
         const rid = this.route.rid
