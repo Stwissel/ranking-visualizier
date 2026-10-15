@@ -8,7 +8,6 @@
  * @module
  */
 import '@awesome.me/webawesome/dist/styles/webawesome.css'
-import '@awesome.me/webawesome/dist/components/badge/badge.js'
 import '@awesome.me/webawesome/dist/components/button/button.js'
 import '@awesome.me/webawesome/dist/components/callout/callout.js'
 import '@awesome.me/webawesome/dist/components/card/card.js'
@@ -18,7 +17,6 @@ import '@awesome.me/webawesome/dist/components/dialog/dialog.js'
 import '@awesome.me/webawesome/dist/components/divider/divider.js'
 import '@awesome.me/webawesome/dist/components/dropdown/dropdown.js'
 import '@awesome.me/webawesome/dist/components/dropdown-item/dropdown-item.js'
-import '@awesome.me/webawesome/dist/components/format-date/format-date.js'
 import '@awesome.me/webawesome/dist/components/icon/icon.js'
 import '@awesome.me/webawesome/dist/components/input/input.js'
 import '@awesome.me/webawesome/dist/components/page/page.js'
@@ -28,7 +26,6 @@ import '@awesome.me/webawesome/dist/components/relative-time/relative-time.js'
 import '@awesome.me/webawesome/dist/components/switch/switch.js'
 import '@awesome.me/webawesome/dist/components/tag/tag.js'
 import '@awesome.me/webawesome/dist/components/textarea/textarea.js'
-import '@awesome.me/webawesome/dist/components/tooltip/tooltip.js'
 import './ui/styles/app.css'
 import { useBundledIcons } from './ui/icons.js'
 

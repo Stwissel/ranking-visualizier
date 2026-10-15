@@ -84,7 +84,7 @@ describe('<rv-ranking-editor>', () => {
     editor.ranking = stored!
     await editor.updateComplete
     expect(titles(editor)).toEqual(['Beta', 'Alpha', 'Gamma'])
-    expect(editor.querySelector('.rv-live')?.textContent).toContain(
+    expect(editor.querySelector('[role=status]')?.textContent).toContain(
       'Moved Alpha to position 2 of 3',
     )
   })

@@ -67,6 +67,13 @@ export class RvBumpChart extends LitElement {
 
   private observer: ResizeObserver | undefined
 
+  /** For a topic that no longer exists: the neutral token, read once the element is styled. */
+  private get fallbackColour(): string {
+    return (
+      getComputedStyle(this).getPropertyValue('--wa-color-neutral-fill-loud').trim() || '#888888'
+    )
+  }
+
   protected override createRenderRoot(): HTMLElement {
     return this
   }
@@ -100,7 +107,7 @@ export class RvBumpChart extends LitElement {
           entry = {
             topicId: item.topicId,
             title: topic?.title ?? 'Unknown topic',
-            colour: topic?.colour ?? '#888888',
+            colour: topic?.colour ?? this.fallbackColour,
             points: [],
           }
           byTopic.set(item.topicId, entry)

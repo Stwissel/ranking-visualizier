@@ -48,7 +48,7 @@ export class RvTopicsView extends LitElement {
     return html`
       <header class="wa-split wa-align-items-start">
         <div class="wa-stack wa-gap-2xs">
-          <h1 class="rv-page-title">Topics</h1>
+          <h1 class="wa-heading-l rv-page-title">Topics</h1>
           <p class="rv-page-subtitle">
             Title and colour are shared by every ranking. ${newest ? html`Ranks shown are from “${newest.name}”.` : nothing}
           </p>

@@ -68,7 +68,7 @@ export class RvRankingsNav extends LitElement {
                   (r) => r._id,
                   (r) => {
                     const rid = shortId(r._id)
-                    return html`<li class="rv-nav-row" aria-current=${this.isCurrent(rid) ? 'page' : nothing}>
+                    return html`<li class="rv-nav-row wa-flank wa-gap-xs" aria-current=${this.isCurrent(rid) ? 'page' : nothing}>
                       <wa-checkbox
                         size="s"
                         ?checked=${this.compareIds.has(rid)}
@@ -101,7 +101,7 @@ export class RvRankingsNav extends LitElement {
         <wa-divider></wa-divider>
         <h2 class="rv-nav-heading">Topics</h2>
         <ul class="rv-nav-list">
-          <li class="rv-nav-row" aria-current=${this.route.view === 'topics' ? 'page' : nothing}>
+          <li class="rv-nav-row wa-flank wa-gap-xs" aria-current=${this.route.view === 'topics' ? 'page' : nothing}>
             <wa-icon name="tags" class="rv-quiet"></wa-icon>
             <a class="rv-nav-link" href=${routeHash({ view: 'topics' })} data-drawer="close">
               <span class="rv-nav-link-name">Manage topics</span>

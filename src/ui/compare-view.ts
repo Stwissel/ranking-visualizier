@@ -26,7 +26,7 @@ export class RvCompareView extends LitElement {
     if (ordered.length < 2) {
       return html`<div class="rv-empty wa-stack wa-gap-s wa-align-items-center">
         <wa-icon name="chart-line"></wa-icon>
-        <h1 class="rv-page-title">Compare rankings</h1>
+        <h1 class="wa-heading-l rv-page-title">Compare rankings</h1>
         <p>Tick two or more rankings in the sidebar to see how their order shifted.</p>
       </div>`
     }
@@ -34,7 +34,7 @@ export class RvCompareView extends LitElement {
     const last = ordered[ordered.length - 1]!
     return html`
       <header class="wa-stack wa-gap-2xs">
-        <h1 class="rv-page-title">Compare ${ordered.length} rankings</h1>
+        <h1 class="wa-heading-l rv-page-title">Compare ${ordered.length} rankings</h1>
         <p class="rv-page-subtitle">${formatDate(first.date)} to ${formatDate(last.date)}. Each line is a topic; up means a higher priority.</p>
       </header>
       <wa-card>
@@ -61,7 +61,7 @@ export class RvCompareView extends LitElement {
           (row) => html`<tr>
             <th scope="row">
               <span class="wa-cluster wa-gap-xs">
-                <span class="rv-swatch" style=${styleMap({ '--rv-colour': row.colour })}></span>${row.title}
+                <span class="rv-swatch" style=${styleMap({ '--rv-colour': row.colour ?? '' })}></span>${row.title}
               </span>
             </th>
             ${row.ranks.map((rank, index) => this.renderCell(rank, index === 0 ? undefined : row.ranks[index - 1]))}
@@ -96,7 +96,7 @@ export class RvCompareView extends LitElement {
       return {
         topicId,
         title: topic?.title ?? 'Unknown topic',
-        colour: topic?.colour ?? '#888888',
+        colour: topic?.colour,
         ranks,
       }
     })

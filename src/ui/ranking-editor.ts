@@ -124,7 +124,7 @@ export class RvRankingEditor extends LitElement {
     return html`
       <header class="wa-split wa-align-items-start">
         <div class="wa-stack wa-gap-2xs">
-          <h1 class="rv-page-title">${ranking.name}</h1>
+          <h1 class="wa-heading-l rv-page-title">${ranking.name}</h1>
           <p class="rv-page-subtitle">
             ${formatDate(ranking.date, { dateStyle: 'full' })}
             ${isNewest ? html`<wa-tag size="s" variant="brand" appearance="filled-outlined">newest</wa-tag>` : nothing}
@@ -179,7 +179,7 @@ export class RvRankingEditor extends LitElement {
                 Drag the handle, or use the arrows, to reorder. Rank 1 is the top priority. Each
                 description belongs to this ranking only.
               </p>
-              <ol class="rv-rank-list" aria-label="Ranked topics">
+              <ol class="rv-rank-list wa-stack wa-gap-xs" aria-label="Ranked topics">
                 ${repeat(
                   this.items,
                   (item) => item.topicId,
@@ -187,7 +187,7 @@ export class RvRankingEditor extends LitElement {
                 )}
               </ol>`
       }
-      <div class="rv-live" role="status" aria-live="polite">${this.announcement}</div>
+      <div class="wa-visually-hidden" role="status" aria-live="polite">${this.announcement}</div>
     `
   }
 
@@ -196,7 +196,8 @@ export class RvRankingEditor extends LitElement {
     const title = topic?.title ?? 'Unknown topic'
     const last = this.items.length - 1
     return html`<li class="rv-rank-item" style=${styleMap({ '--rv-colour': topic?.colour ?? '' })} data-topic=${topicId}>
-      <span class="rv-rank-number" aria-label=${`Rank ${index + 1}`}>${index + 1}</span>
+      <span class="rv-rank-number" aria-hidden="true">${index + 1}</span>
+      <span class="wa-visually-hidden">Rank ${index + 1}</span>
       <wa-icon class="rv-handle" name="grip-vertical" label="Drag to reorder"></wa-icon>
       <h2 class="rv-rank-title wa-body-m">${title}</h2>
       <wa-textarea
@@ -205,12 +206,11 @@ export class RvRankingEditor extends LitElement {
         appearance="filled"
         rows="1"
         resize="auto"
-        label=${`Description of ${title} in this ranking`}
         .value=${description}
         placeholder="Why it sits here…"
         @change=${(e: Event) => void this.saveDescription(topicId, (e.target as HTMLTextAreaElement).value)}
       ><span slot="label" class="wa-visually-hidden">Description of ${title} in this ranking</span></wa-textarea>
-      <div class="rv-rank-actions">
+      <div class="rv-rank-actions wa-stack wa-gap-3xs">
         <wa-button size="s" appearance="plain" ?disabled=${index === 0} @click=${() => void this.move(index, index - 1)}>
           <wa-icon name="arrow-up" label=${`Move ${title} up`}></wa-icon>
         </wa-button>

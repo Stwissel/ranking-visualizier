@@ -37,11 +37,11 @@ export class RvDeleteTopicDialog extends DialogElement {
           <wa-radio-group name="mode" label="How far should this go?" value="retire">
             <wa-radio value="retire">
               Remove from ${scope}
-              <span slot="hint">Earlier rankings keep it, so history and charts still show where it stood.</span>
+              <span class="rv-radio-hint">Earlier rankings keep it, so history and charts still show where it stood.</span>
             </wa-radio>
             <wa-radio value="delete">
               Delete completely
-              <span slot="hint">Removes the topic and its place in every ranking. This cannot be undone.</span>
+              <span class="rv-radio-hint">Removes the topic and its place in every ranking. This cannot be undone.</span>
             </wa-radio>
           </wa-radio-group>
         </form>

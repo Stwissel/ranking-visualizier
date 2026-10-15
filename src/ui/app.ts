@@ -421,6 +421,7 @@ export class RvApp extends LitElement {
     >
       <wa-icon slot="start" name=${state === 'error' ? 'triangle-exclamation' : 'cloud'}></wa-icon>
       <span class="wa-desktop-only">${label}</span>
+      <span class="wa-mobile-only wa-visually-hidden">${label}</span>
     </wa-button>`
   }
 
@@ -448,7 +449,7 @@ export class RvApp extends LitElement {
     if (!this.sid) {
       return html`<div class="rv-empty wa-stack wa-gap-m wa-align-items-center">
         <wa-icon name="layer-group"></wa-icon>
-        <h1 class="rv-page-title">Start a session</h1>
+        <h1 class="wa-heading-l rv-page-title">Start a session</h1>
         <p>A session holds its own topics and rankings. Create one, or import a JSON export.</p>
         <div class="wa-cluster wa-gap-s">
           <wa-button variant="brand" @click=${() => {
@@ -493,7 +494,7 @@ export class RvApp extends LitElement {
     const hasTopics = this.topics.length > 0
     return html`<div class="rv-empty wa-stack wa-gap-m wa-align-items-center">
       <wa-icon name=${hasTopics ? 'list-ol' : 'tags'}></wa-icon>
-      <h1 class="rv-page-title">${hasTopics ? 'Create your first ranking' : 'Add some topics'}</h1>
+      <h1 class="wa-heading-l rv-page-title">${hasTopics ? 'Create your first ranking' : 'Add some topics'}</h1>
       <p>
         ${
           hasTopics

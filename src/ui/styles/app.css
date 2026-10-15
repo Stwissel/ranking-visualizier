@@ -21,14 +21,6 @@ wa-page[view="mobile"] {
   --menu-width: auto;
 }
 
-/* The free build ships no responsive helpers, so the two <wa-page> documents rely on are
-   defined here, scoped to the page's own view attribute. */
-wa-page[view="desktop"] .wa-mobile-only,
-wa-page[view="desktop"] [data-toggle-nav],
-wa-page[view="mobile"] .wa-desktop-only {
-  display: none;
-}
-
 .rv-header {
   padding: var(--wa-space-s) var(--wa-space-m);
   border-block-end: var(--wa-border-width-s) var(--wa-border-style) var(--wa-color-surface-border);
@@ -57,7 +49,7 @@ wa-page[view="mobile"] .rv-brand-name {
 
 .rv-main {
   padding: var(--wa-space-l) var(--wa-space-xl);
-  max-inline-size: 72rem;
+  max-inline-size: 140ch;
 }
 
 wa-page[view="mobile"] .rv-main {
@@ -65,10 +57,7 @@ wa-page[view="mobile"] .rv-main {
 }
 
 /* Navigation ---------------------------------------------------------------------------- */
-
-.rv-nav {
-  padding: var(--wa-space-m);
-}
+/* <wa-page> pads and stacks the slotted navigation element itself; nothing is added here. */
 
 .rv-nav-heading {
   margin: 0;
@@ -86,9 +75,6 @@ wa-page[view="mobile"] .rv-main {
 }
 
 .rv-nav-row {
-  display: flex;
-  align-items: center;
-  gap: var(--wa-space-xs);
   padding: var(--wa-space-2xs) var(--wa-space-xs);
   border-radius: var(--wa-border-radius-m);
 }
@@ -129,9 +115,6 @@ wa-page[view="mobile"] .rv-main {
 
 .rv-page-title {
   margin: 0;
-  font-size: var(--wa-font-size-xl);
-  font-weight: var(--wa-font-weight-semibold);
-  line-height: var(--wa-line-height-condensed);
 }
 
 .rv-page-subtitle {
@@ -160,7 +143,7 @@ wa-page[view="mobile"] .rv-main {
   block-size: 1em;
   border-radius: var(--wa-border-radius-circle);
   background: var(--rv-colour, var(--wa-color-neutral-fill-loud));
-  box-shadow: inset 0 0 0 var(--wa-border-width-s) rgb(0 0 0 / 0.15);
+  box-shadow: inset 0 0 0 var(--wa-border-width-s) var(--wa-color-surface-border);
 }
 
 /* Ranking editor ------------------------------------------------------------------------ */
@@ -169,9 +152,6 @@ wa-page[view="mobile"] .rv-main {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--wa-space-xs);
 }
 
 .rv-rank-item {
@@ -237,9 +217,6 @@ wa-page[view="mobile"] .rv-main {
 
 .rv-rank-actions {
   grid-area: actions;
-  display: flex;
-  flex-direction: column;
-  gap: var(--wa-space-3xs);
 }
 
 wa-page[view="mobile"] .rv-rank-item {
@@ -395,12 +372,9 @@ wa-page[view="mobile"] .rv-rank-actions {
   margin: 0;
 }
 
-/* Visually hidden live region for drag and keyboard announcements. */
-.rv-live {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+/* A second line under a radio's label: wa-radio has no hint of its own. */
+.rv-radio-hint {
+  display: block;
+  color: var(--wa-color-text-quiet);
+  font-size: var(--wa-font-size-s);
 }

@@ -48,9 +48,9 @@ export class RvImportDialog extends DialogElement {
           ${
             this.clashes.length > 0
               ? html`<wa-radio-group name="strategy" label="Sessions that already exist" value="copy">
-                  <wa-radio value="copy">Import as a copy<span slot="hint">Keeps both; the copy gets new ids.</span></wa-radio>
-                  <wa-radio value="replace">Replace<span slot="hint">Deletes the local session and its rankings first.</span></wa-radio>
-                  <wa-radio value="skip">Skip<span slot="hint">Imports only the sessions that are new here.</span></wa-radio>
+                  <wa-radio value="copy">Import as a copy<span class="rv-radio-hint">Keeps both; the copy gets new ids.</span></wa-radio>
+                  <wa-radio value="replace">Replace<span class="rv-radio-hint">Deletes the local session and its rankings first.</span></wa-radio>
+                  <wa-radio value="skip">Skip<span class="rv-radio-hint">Imports only the sessions that are new here.</span></wa-radio>
                 </wa-radio-group>`
               : ''
           }
