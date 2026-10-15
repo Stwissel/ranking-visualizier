@@ -71,4 +71,21 @@ describe('<rv-compare-view>', () => {
     await until(() => selectedRow(view) === null)
     expect(selectedLine(view)).toBeNull()
   })
+
+  it('drops the pin when the compared rankings no longer contain its topic', async () => {
+    const view = await mount()
+    view.querySelector<HTMLElement>('#rv-row-b')!.click()
+    await until(() => selectedRow(view) === 'b')
+    // Alpha stays, Beta is gone from both rankings.
+    view.rankings = [ranking('r2', '2026-02-01', ['a']), ranking('r1', '2026-01-01', ['a'])]
+    await until(() => view.querySelectorAll('tbody tr').length === 1)
+    expect(view.selected).toBeUndefined()
+    expect(view.querySelector('svg.rv-chart')?.hasAttribute('data-focus')).toBe(false)
+    // A pin whose topic survives the change stays.
+    view.querySelector<HTMLElement>('#rv-row-a')!.click()
+    await until(() => selectedRow(view) === 'a')
+    view.rankings = [ranking('r2', '2026-02-01', ['a', 'b']), ranking('r1', '2026-01-01', ['a'])]
+    await until(() => view.querySelectorAll('tbody tr').length === 2)
+    expect(selectedRow(view)).toBe('a')
+  })
 })

@@ -2,7 +2,7 @@
  * `<rv-compare-view>`: two or more rankings side by side as a bump chart, with the table that
  * carries the same numbers for anyone who cannot or would rather not read the chart.
  */
-import { html, LitElement, nothing } from 'lit'
+import { html, LitElement, nothing, type PropertyValues } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
 import { compareRows, describeStats, statsOf } from '../data/insights.js'
 import { compareToMarkdown } from '../data/markdown.js'
@@ -31,6 +31,15 @@ export class RvCompareView extends LitElement {
 
   private select(topicId: string | undefined): void {
     this.selected = this.selected === topicId ? undefined : topicId
+  }
+
+  /** A pin outlives a change of rankings only while its topic is still in one of them. */
+  protected override willUpdate(changed: PropertyValues<this>): void {
+    if (!changed.has('rankings') || !this.selected) return
+    const id = this.selected
+    if (!this.rankings.some((ranking) => ranking.items.some((item) => item.topicId === id))) {
+      this.selected = undefined
+    }
   }
 
   private onSelectTopic = (event: CustomEvent<{ topicId: string | undefined }>): void => {
