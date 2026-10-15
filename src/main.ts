@@ -26,6 +26,7 @@ import '@awesome.me/webawesome/dist/components/relative-time/relative-time.js'
 import '@awesome.me/webawesome/dist/components/switch/switch.js'
 import '@awesome.me/webawesome/dist/components/tag/tag.js'
 import '@awesome.me/webawesome/dist/components/textarea/textarea.js'
+import '@awesome.me/webawesome/dist/components/tooltip/tooltip.js'
 import './ui/styles/app.css'
 import { useBundledIcons } from './ui/icons.js'
 

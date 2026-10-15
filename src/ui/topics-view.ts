@@ -5,9 +5,11 @@
 import { html, LitElement, nothing } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { styleMap } from 'lit/directives/style-map.js'
-import { type RankingDoc, shortId, type TopicDoc } from '../data/model.js'
+import { describeStats, statsOf, trendOf } from '../data/insights.js'
+import { compareRankings, type RankingDoc, shortId, type TopicDoc } from '../data/model.js'
 import type { Store } from '../data/store.js'
 import { attempt, requestDialog } from './events.js'
+import { trendTag } from './trend.js'
 
 export class RvTopicsView extends LitElement {
   static override properties = {
@@ -28,6 +30,10 @@ export class RvTopicsView extends LitElement {
 
   private get newest(): RankingDoc | undefined {
     return this.rankings[0]
+  }
+
+  private get chronological(): RankingDoc[] {
+    return [...this.rankings].sort(compareRankings)
   }
 
   /** Rank in the newest ranking, 1-based, or undefined when retired or never ranked. */
@@ -77,12 +83,17 @@ export class RvTopicsView extends LitElement {
   private renderTopic(topic: TopicDoc) {
     const rank = this.rankOf(topic)
     const retired = this.newest !== undefined && rank === undefined
+    const tid = shortId(topic._id)
+    const chronological = this.chronological
+    const stats = statsOf(tid, chronological)
     return html`<wa-card class="rv-topic-card" appearance="outlined" style=${styleMap({ '--rv-colour': topic.colour })}>
       <div class="wa-flank wa-gap-s wa-align-items-center">
         <span class="rv-swatch wa-font-size-xl"></span>
         <div class="wa-split wa-align-items-center wa-gap-xs">
           <div class="wa-stack wa-gap-3xs">
-            <h2 class="rv-topic-title wa-body-m wa-font-weight-semibold">${topic.title}</h2>
+            <h2 class="rv-topic-title wa-body-m wa-font-weight-semibold wa-cluster wa-gap-xs">
+              ${topic.title}${trendTag(trendOf(tid, chronological))}
+            </h2>
             <span class="rv-quiet wa-caption-s">
               ${
                 rank !== undefined
@@ -92,6 +103,7 @@ export class RvTopicsView extends LitElement {
                     : 'Not ranked yet'
               }
             </span>
+            ${stats.appearances > 1 ? html`<span class="rv-quiet wa-caption-s">${describeStats(stats)}</span>` : nothing}
           </div>
           <div class="wa-cluster wa-gap-3xs">
             ${
